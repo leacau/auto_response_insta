@@ -1,0 +1,10 @@
+{
+    "respuestas": {
+        "default": "¡Gracias por tu comentario! 😊",
+        "palabras_clave": {
+            "precio": "📢 Te envío los precios por DM. ¡Gracias por tu interés!",
+            "contacto": "📩 Escribinos a nuestro email: consultas@leandrochena.com",
+            "duda": "¿En qué podemos ayudarte? Dejanos tu consulta."
+        }
+    }
+}

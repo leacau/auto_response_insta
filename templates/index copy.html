@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Instagram Bot</title>
+		<link rel="stylesheet" href="/static/css/style.css" />
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+		/>
+	</head>
+	<body>
+		<div id="app">
+			<!-- Pantalla principal -->
+			<div id="screen-home" class="screen active">
+				<header>
+					<h1><i class="fas fa-robot"></i> Instagram Bot</h1>
+					<p>Selecciona una publicación para ver más detalles</p>
+				</header>
+				<div id="postSelectorContainer" class="post-grid">
+					<p>
+						<i class="fas fa-spinner fa-spin"></i> Cargando publicaciones...
+					</p>
+				</div>
+				<div class="pagination-controls">
+					<button id="prevPageBtn" class="btn-secondary" disabled>
+						<i class="fas fa-chevron-left"></i> Anterior
+					</button>
+					<button id="nextPageBtn" class="btn-secondary">
+						Siguiente <i class="fas fa-chevron-right"></i>
+					</button>
+				</div>
+			</div>
+			<!-- Detalles de la publicación -->
+			<div id="screen-details" class="postDetails screen">
+				<div id="postDetail" class="post-grid">
+					<p><i class="fas fa-spinner fa-spin"></i> Cargando detalles...</p>
+				</div>
+				<button id="backToHomeBtn" class="btn-back">
+					<i class="fas fa-arrow-left"></i> Volver
+				</button>
+			</div>
+		</div>
+
+		<script src="/static/js/script.js"></script>
+	</body>
+</html>

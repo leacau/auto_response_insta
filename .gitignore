@@ -1,0 +1,5 @@
+# Excluir archivos sensibles
+.env
+logs/
+__pycache__/
+*.pyc

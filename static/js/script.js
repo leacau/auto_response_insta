@@ -2,7 +2,6 @@ let currentPage = 1;
 let selectedPostId = null;
 
 document.addEventListener('DOMContentLoaded', function () {
-	// Cargar publicaciones
 	loadUserPosts(currentPage);
 
 	// Paginación
@@ -22,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
 function showScreen(screenId) {
 	document
 		.querySelectorAll('.screen')
-		.forEach((s) => s.classList.remove('active'));
+		.forEach((screen) => screen.classList.remove('active'));
 	document.getElementById(screenId).classList.add('active');
 }
 
@@ -70,7 +69,7 @@ async function loadUserPosts(page = 1) {
 }
 
 async function loadPostDetails(post_id) {
-	const detailContainer = document.getElementById('postSelectorContainer');
+	const detailContainer = document.getElementById('postDetail');
 	detailContainer.innerHTML =
 		'<p><i class="fas fa-spinner fa-spin"></i> Cargando detalles...</p>';
 
@@ -82,33 +81,39 @@ async function loadPostDetails(post_id) {
 			const post = data.post;
 
 			detailContainer.innerHTML = `
-                <button id="backToHomeBtn" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</button>
-                <div class="post-detail">
-                    <img src="${post.thumbnail}" 
-                         width="100%" 
-                         style="max-width: 400px; border-radius: 10px;"
-                         onerror="this.src='/static/images/placeholder.jpg'" />
-                    <div class="post-info">
-                        <h3>Caption:</h3>
-                        <p>${post.caption}</p>
-                        <h3>Likes:</h3>
-                        <p>${post.like_count}</p>
-                        <h3>Comentarios:</h3>
-                        <p>${post.comment_count}</p>
-                        <h3>Agregar Palabra Clave</h3>
-                        <input type="text" id="keywordInput" placeholder="Palabra clave...">
-                        <textarea id="responseInput" rows="3" placeholder="Hasta 7 respuestas separadas por comas"></textarea>
-                        <button id="saveKeywordBtn" class="btn-primary">Guardar</button>
-                        <div id="detailStatusBox" class="status-box"></div>
-                    </div>
+                <button id="backToHomeBtn" class="btn-back">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </button>
+                <h3>Caption:</h3>
+                <p id="detailCaption">${post.caption}</p>
+                <p><strong>Likes:</strong> <span id="detailLikes">${
+									post.like_count
+								}</span></p>
+                <p><strong>Comentarios:</strong> <span id="detailComments">${
+									post.comment_count
+								}</span></p>
+                <p><small id="detailTimestamp">${new Date(
+									post.timestamp
+								).toLocaleString()}</small></p>
+                <h3>Miniatura:</h3>
+                <img id="detailThumbnail" src="${post.thumbnail}" 
+                     style="max-width: 400px; border-radius: 10px;" 
+                     onerror="this.src='/static/images/placeholder.jpg'">
+                <div id="keywordForm">
+                    <h3>Agregar Palabra Clave</h3>
+                    <input type="text" id="keywordInput" placeholder="Ejemplo: hola...">
+                    <textarea id="responseInput" rows="3" placeholder="Respuesta..."></textarea>
+                    <button id="saveKeywordBtn" class="btn-primary">Guardar</button>
+                    <div id="detailStatusBox" class="status-box"></div>
                 </div>
             `;
 
-			// Reasignar eventos dinámicos
+			// Reasignar evento al botón de volver
 			document.getElementById('backToHomeBtn').addEventListener('click', () => {
 				showScreen('screen-home');
 			});
 
+			// Agregar evento al botón de guardar palabra clave
 			document
 				.getElementById('saveKeywordBtn')
 				.addEventListener('click', () => {
@@ -118,24 +123,14 @@ async function loadPostDetails(post_id) {
 						.value.trim();
 
 					if (!keyword || !response) {
-						alert('Completa ambos campos');
+						alert('Por favor completa ambos campos');
 						return;
 					}
 
-					const responseList = response
-						.split(',')
-						.map((r) => r.trim())
-						.filter(Boolean);
-
-					if (responseList.length === 0) {
-						alert('Por favor ingresa al menos una respuesta');
-						return;
-					}
-
-					saveKeywordForPost(post.id, keyword, responseList);
+					saveKeywordForPost(post.id, keyword, response);
 				});
 
-			showScreen('screen-detail');
+			showScreen('screen-details');
 		} else {
 			detailContainer.innerHTML = `<p class="error">No se pudo cargar el post.</p>`;
 		}
@@ -144,16 +139,15 @@ async function loadPostDetails(post_id) {
 	}
 }
 
-async function saveKeywordForPost(post_id, keyword, response_list) {
+async function saveKeywordForPost(post_id, keyword, response_text) {
 	const statusBox = document.getElementById('detailStatusBox');
 	statusBox.innerHTML =
-		'<p><i class="fas fa-spinner fa-spin"></i> Guardando regla...</p>';
+		'<p><i class="fas fa-spinner fa-spin"></i> Guardando palabra clave...</p>';
 
 	try {
-		const config = {
-			keywords: { [keyword]: response_list },
-			default_response: 'Gracias por tu comentario!',
-		};
+		const config = load_config(post_id) || {};
+		config.keywords = config.keywords || {};
+		config.keywords[keyword] = [response_text];
 
 		const res = await fetch('/api/save_keyword', {
 			method: 'POST',
@@ -162,6 +156,7 @@ async function saveKeywordForPost(post_id, keyword, response_list) {
 		});
 
 		const result = await res.json();
+
 		if (result.status === 'success') {
 			statusBox.innerHTML =
 				'<p><i class="fas fa-check-circle"></i> Regla guardada con éxito</p>';

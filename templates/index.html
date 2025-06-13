@@ -32,35 +32,10 @@
 				</div>
 			</div>
 
-			<!-- Detalles del post -->
-			<div id="screen-detail" class="screen">
-				<button id="backToHomeBtn" class="btn-back">
-					<i class="fas fa-arrow-left"></i> Volver
-				</button>
-				<div class="post-detail">
-					<img
-						id="detailThumbnail"
-						src=""
-						alt="Miniatura"
-						width="100%"
-						style="max-width: 400px; border-radius: 10px"
-						onerror="this.src='/static/images/placeholder.jpg'"
-					/>
-					<div class="post-info">
-						<h3>Caption:</h3>
-						<p id="detailCaption">Sin descripción</p>
-						<h3>Agregar Palabras Clave</h3>
-						<input type="text" id="keywordInput" placeholder="Ejemplo: hola" />
-						<textarea
-							id="responseInput"
-							rows="3"
-							placeholder="Ingresa hasta 7 respuestas separadas por comas"
-						></textarea>
-						<button id="saveKeywordBtn" class="btn-primary">
-							Guardar Regla
-						</button>
-						<div id="detailStatusBox" class="status-box"></div>
-					</div>
+			<!-- Pantalla de detalles -->
+			<div id="screen-details" class="screen">
+				<div id="postDetail">
+					<p><i class="fas fa-spinner fa-spin"></i> Cargando detalles...</p>
 				</div>
 			</div>
 		</div>

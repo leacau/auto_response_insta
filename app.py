@@ -40,7 +40,7 @@ GRAPH_URL = "https://graph.instagram.com/v23.0"
 os.makedirs(IMAGE_CACHE_DIR, exist_ok=True)
 
 def load_config_for_post(post_id):
-    """Cargar configuración específica para un post"""
+    """Cargar configuración específica por post"""
     config_path = f"config_{post_id}.json"
     try:
         with open(config_path) as f:
@@ -48,7 +48,7 @@ def load_config_for_post(post_id):
     except (FileNotFoundError, json.JSONDecodeError):
         return {
             "keywords": {},
-            "default_response": "Gracias por tu comentario!"
+            "default_response": "Gracias por tu comentario",
         }
 
 def save_config(config):
@@ -294,20 +294,20 @@ def handle_webhook():
 
 
 def respond_to_comment(comment_text, post_id, user):
-    """Responder a un comentario usando palabras clave por post"""
+    """Responder a un comentario usando reglas de palabras clave"""
     config = load_config_for_post(post_id)
     matched = False
 
     # Buscar coincidencias con palabras clave
     for keyword, responses in config.get('keywords', {}).items():
-        if keyword.lower() in comment_text:
+        if keyword.lower() in comment_text.lower():
             reply_text = random.choice(responses) if isinstance(responses, list) and len(responses) > 0 else responses[0]
             send_instagram_comment(post_id, reply_text)
             log_activity(comment_text, post_id, reply_text, user, matched=True)
             matched = True
             break
 
-    # Si no hay palabra clave, usar respuesta predeterminada
+    # Si no hay match, usar respuesta predeterminada
     if not matched:
         default_response = config.get('default_response', '')
         if default_response:
@@ -353,6 +353,7 @@ def log_activity(comment_text, media_id, reply_text, user, matched=True):
 
     with open(config_path, 'w') as f:
         json.dump(main_config, f, indent=2)
+
 
 
 if __name__ == '__main__':

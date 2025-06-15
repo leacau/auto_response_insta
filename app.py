@@ -256,88 +256,94 @@ def serve_cached_image(filename):
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def handle_webhook():
-    """Manejar eventos de webhook"""
-    logger.info("Datos del webhook:", data)
+    """Manejar webhook desde Meta"""
     if request.method == 'GET':
-        # Verificación del webhook (Meta envía un challenge)
+        # Verificación inicial del webhook
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
 
-        if mode == 'subscribe' and token == os.getenv('WEBHOOK_VERIFY_TOKEN'):
-            return Response(challenge, mimetype='text/plain')
-        else:
-            return jsonify({"status": "error", "message": "Verificación fallida"}), 403
+        if mode and token:
+            if mode == 'subscribe' and token == os.getenv('WEBHOOK_VERIFY_TOKEN'):
+                return Response(challenge, mimetype='text/plain')
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": "Verificación fallida"
+                }), 403
+        return jsonify({
+            "status": "error",
+            "message": "Parámetros faltantes"
+        }), 400
 
     elif request.method == 'POST':
         data = request.json
         logger.info("Webhook recibido:", data)
 
-        entry = data.get('entry', [{}])[0]
-        changes = entry.get('changes', [])
-        
-        for change in changes:
-            value = change.get('value', {})
-            comment_text = value.get('text', '')
-            post_id = value.get('post_id', '') or value.get('media_id', '')
-            user = value.get('from', {})
+        try:
+            for entry in data.get('entry', []):
+                for change in entry.get('changes', []):
+                    value = change.get('value', {})
+                    comment_text = value.get('text', '').lower()
+                    post_id = value.get('media_id', '') or value.get('post_id', '')
+                    user = value.get('from', {})
 
-            if comment_text and post_id:
-                respond_to_comment(comment_text, post_id, user)
+                    if comment_text and post_id:
+                        respond_to_comment(comment_text, post_id, user)
 
-        return jsonify({"status": "ok"}), 200
+            return jsonify({"status": "success", "message": "Notificación procesada"})
+        except Exception as e:
+            logger.error(f"Error procesando webhook: {str(e)}")
+            return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 500
 
 
 def respond_to_comment(comment_text, post_id, user):
-    """Responder a un comentario usando reglas de palabras clave"""
-    try:
-        config = load_config()
-        matched = False
+    config = load_config()
+    matched = False
+    logger.info(f"Comentario recibido: {comment_text} en publicación {post_id}")
 
-        for keyword, responses in config.get('keywords', {}).items():
-            if keyword.lower() in comment_text.lower():
-                reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses[0]
-                send_instagram_comment(post_id, reply_text)
-                log_activity(comment_text, post_id, reply_text, user, matched=True)
-                matched = True
-                break
+    # Buscar coincidencias en palabras clave
+    for keyword, responses in config.get('keywords', {}).items():
+        if keyword.lower() in comment_text:
+            reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses[0]
+            send_instagram_comment(post_id, reply_text)
+            log_activity(comment_text, post_id, reply_text, user, matched=True)
+            matched = True
+            break
 
-        if not matched:
-            default_response = config.get('default_response', '')
-            if default_response:
-                send_instagram_comment(post_id, default_response)
-                log_activity(comment_text, post_id, default_response, user, matched=False)
+    # Si no hay palabra clave, usar respuesta predeterminada
+    if not matched:
+        default_response = config.get('default_response', '')
+        if default_response:
+            send_instagram_comment(post_id, default_response)
+            log_activity(comment_text, post_id, default_response, user, matched=False)
 
-        time.sleep(DELAY_ENTRE_RESPUESTAS)
-
-    except Exception as e:
-        logger.error(f"Error al responder: {str(e)}")
+    return True
 
 def send_instagram_comment(media_id, message):
-    """Enviar comentario a través de Graph API"""
+    """Enviar comentario vía Graph API"""
     url = f"{GRAPH_URL}/{media_id}/comments"
     payload = {
         'message': message,
         'access_token': ACCESS_TOKEN
     }
-    try:
-        response = requests.post(url, data=payload, timeout=REQUEST_TIMEOUT)
-        if response.status_code != 200:
-            logger.warning(f"No se pudo enviar el comentario: {response.text}")
-        return response.json()
-    except Exception as e:
-        logger.error(f"Error enviando comentario: {str(e)}")
-        return None
+    response = requests.post(url, data=payload, timeout=REQUEST_TIMEOUT)
+    if response.status_code != 200:
+        logger.warning(f"No se pudo enviar el comentario: {response.text}")
+    return response.json()
 
-def log_activity(comment_text, post_id, reply_text, user, matched=True):
-    """Registrar historial de comentarios respondidos"""
+def log_activity(comment, media_id, reply, user, matched=True):
+    """Registrar actividad en historial"""
     config = load_config()
     timestamp = datetime.now().isoformat()
 
-    config['responded_comments'][f"{post_id}_{timestamp}"] = {
+    config['responded_comments'][f"{media_id}_{timestamp}"] = {
         "usuario": user.get('username', 'Anónimo'),
-        "comentario": comment_text,
-        "respuesta": reply_text,
+        "comentario": comment,
+        "respuesta": reply,
         "fecha": timestamp,
         "matched": matched
     }

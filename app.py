@@ -42,12 +42,16 @@ os.makedirs(IMAGE_CACHE_DIR, exist_ok=True)
 def load_config():
     try:
         with open(CONFIG_FILE) as f:
-            return json.load(f)
+            config = json.load(f)
+            # Si no existe responded_comments, lo creamos como dict vacío
+            if 'responded_comments' not in config:
+                config['responded_comments'] = {}
+            return config
     except (FileNotFoundError, json.JSONDecodeError):
         return {
             "keywords": {},
-            "default_response": "¡Gracias por tu comentario!",
-            "responded_comments": {}
+            "default_response": "Gracias por tu comentario",
+            "responded_comments": {}  # ✅ Agregado aquí
         }
 
 def save_config(config):
@@ -256,56 +260,39 @@ def serve_cached_image(filename):
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def handle_webhook():
-    """Manejar webhook desde Meta"""
+    """Manejar eventos de webhook desde Meta"""
     if request.method == 'GET':
-        # Verificación inicial del webhook
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
 
-        if mode and token:
-            if mode == 'subscribe' and token == os.getenv('WEBHOOK_VERIFY_TOKEN'):
-                return Response(challenge, mimetype='text/plain')
-            else:
-                return jsonify({
-                    "status": "error",
-                    "message": "Verificación fallida"
-                }), 403
-        return jsonify({
-            "status": "error",
-            "message": "Parámetros faltantes"
-        }), 400
+        if mode and token == os.getenv('WEBHOOK_VERIFY_TOKEN'):
+            return Response(challenge, mimetype='text/plain')
+        else:
+            return jsonify({"status": "error", "message": "Verificación fallida"}), 403
 
     elif request.method == 'POST':
         data = request.json
         logger.info("Webhook recibido:", data)
 
-        try:
-            for entry in data.get('entry', []):
-                for change in entry.get('changes', []):
-                    value = change.get('value', {})
-                    comment_text = value.get('text', '').lower()
-                    post_id = value.get('media_id', '') or value.get('post_id', '')
-                    user = value.get('from', {})
+        for entry in data.get('entry', []):
+            for change in entry.get('changes', []):
+                value = change.get('value', {})
+                comment_text = value.get('text', '').lower()
+                media_id = value.get('media_id', '') or value.get('post_id', '')
+                user = value.get('from', {})
 
-                    if comment_text and post_id:
-                        respond_to_comment(comment_text, post_id, user)
+                if comment_text and media_id:
+                    respond_to_comment(comment_text, media_id, user)
 
-            return jsonify({"status": "success", "message": "Notificación procesada"})
-        except Exception as e:
-            logger.error(f"Error procesando webhook: {str(e)}")
-            return jsonify({
-                "status": "error",
-                "message": str(e)
-            }), 500
+        return jsonify({"status": "success"}), 200
 
 
 def respond_to_comment(comment_text, post_id, user):
     config = load_config()
     matched = False
-    logger.info(f"Comentario recibido: {comment_text} en publicación {post_id}")
 
-    # Buscar coincidencias en palabras clave
+    # Buscar coincidencias con palabras clave
     for keyword, responses in config.get('keywords', {}).items():
         if keyword.lower() in comment_text:
             reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses[0]
@@ -314,14 +301,14 @@ def respond_to_comment(comment_text, post_id, user):
             matched = True
             break
 
-    # Si no hay palabra clave, usar respuesta predeterminada
+    # Si no hay match, usar respuesta predeterminada
     if not matched:
         default_response = config.get('default_response', '')
         if default_response:
             send_instagram_comment(post_id, default_response)
             log_activity(comment_text, post_id, default_response, user, matched=False)
 
-    return True
+    time.sleep(DELAY_ENTRE_RESPUESTAS)
 
 def send_instagram_comment(media_id, message):
     """Enviar comentario vía Graph API"""
@@ -335,15 +322,15 @@ def send_instagram_comment(media_id, message):
         logger.warning(f"No se pudo enviar el comentario: {response.text}")
     return response.json()
 
-def log_activity(comment, media_id, reply, user, matched=True):
-    """Registrar actividad en historial"""
+def log_activity(comment_text, post_id, reply_text, user, matched=True):
+    """Registrar actividad"""
     config = load_config()
     timestamp = datetime.now().isoformat()
 
-    config['responded_comments'][f"{media_id}_{timestamp}"] = {
+    config['responded_comments'][f"{post_id}_{timestamp}"] = {
         "usuario": user.get('username', 'Anónimo'),
-        "comentario": comment,
-        "respuesta": reply,
+        "comentario": comment_text,
+        "respuesta": reply_text,
         "fecha": timestamp,
         "matched": matched
     }

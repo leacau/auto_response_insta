@@ -24,6 +24,7 @@ IMAGE_CACHE_DIR = 'static/cached_images'
 MAX_WORKERS = 4
 REQUEST_TIMEOUT = 30
 DELAY_ENTRE_RESPUESTAS = 5
+logging.basicConfig(level=logging.INFO)
 
 # Credenciales desde .env
 load_dotenv()
@@ -255,8 +256,10 @@ def serve_cached_image(filename):
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def handle_webhook():
+    """Manejar eventos de webhook"""
+    logger.info("Datos del webhook:", data)
     if request.method == 'GET':
-        # Verificación de webhook
+        # Verificación del webhook (Meta envía un challenge)
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
         challenge = request.args.get('hub.challenge')
@@ -269,29 +272,47 @@ def handle_webhook():
     elif request.method == 'POST':
         data = request.json
         logger.info("Webhook recibido:", data)
+
+        entry = data.get('entry', [{}])[0]
+        changes = entry.get('changes', [])
+        
+        for change in changes:
+            value = change.get('value', {})
+            comment_text = value.get('text', '')
+            post_id = value.get('post_id', '') or value.get('media_id', '')
+            user = value.get('from', {})
+
+            if comment_text and post_id:
+                respond_to_comment(comment_text, post_id, user)
+
         return jsonify({"status": "ok"}), 200
 
 
 def respond_to_comment(comment_text, post_id, user):
-    """Responder a comentario basado en palabras clave o respuesta predeterminada"""
-    config = load_config()  # Carga configuración global (default_response, keywords)
-    matched = False
+    """Responder a un comentario usando reglas de palabras clave"""
+    try:
+        config = load_config()
+        matched = False
 
-    # Buscar coincidencias con palabras clave
-    for keyword, responses in config.get('keywords', {}).items():
-        if keyword.lower() in comment_text:
-            reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses[0]
-            send_instagram_comment(post_id, reply_text)
-            log_activity(comment_text, post_id, reply_text, user, matched=True)
-            matched = True
-            break
+        for keyword, responses in config.get('keywords', {}).items():
+            if keyword.lower() in comment_text.lower():
+                reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses[0]
+                send_instagram_comment(post_id, reply_text)
+                log_activity(comment_text, post_id, reply_text, user, matched=True)
+                matched = True
+                break
 
-    # Si no hay palabra clave, usar respuesta predeterminada
-    if not matched:
-        default_response = config.get('default_response', '')
-        if default_response:
-            send_instagram_comment(post_id, default_response)
-            log_activity(comment_text, post_id, default_response, user, matched=False)
+        if not matched:
+            default_response = config.get('default_response', '')
+            if default_response:
+                send_instagram_comment(post_id, default_response)
+                log_activity(comment_text, post_id, default_response, user, matched=False)
+
+        time.sleep(DELAY_ENTRE_RESPUESTAS)
+
+    except Exception as e:
+        logger.error(f"Error al responder: {str(e)}")
+
 def send_instagram_comment(media_id, message):
     """Enviar comentario a través de Graph API"""
     url = f"{GRAPH_URL}/{media_id}/comments"

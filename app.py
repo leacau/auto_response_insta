@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, Response
 import os
 import json
 import logging
@@ -8,6 +8,9 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 from functools import lru_cache
 from dotenv import load_dotenv
+import hashlib
+import hmac
+import random
 
 
 # Cargar variables de entorno
@@ -186,6 +189,7 @@ def get_post_details(post_id):
             "status": "error",
             "message": str(e)
         }), 500
+    
 
 def download_and_cache_image(image_url: str, post_id: str) -> str:
     """Descargar y cachear imágenes localmente"""
@@ -242,11 +246,83 @@ def save_keyword_for_post():
             "status": "error",
             "message": str(e)
         }), 500
+    
 
 # Ruta para servir miniaturas caché
 @app.route('/cached_images/<filename>')
 def serve_cached_image(filename):
     return send_from_directory(IMAGE_CACHE_DIR, filename)
+
+@app.route('/webhook', methods=['GET', 'POST'])
+def handle_webhook():
+    if request.method == 'GET':
+        # Verificación de webhook
+        mode = request.args.get('hub.mode')
+        token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
+
+        if mode == 'subscribe' and token == os.getenv('WEBHOOK_VERIFY_TOKEN'):
+            return Response(challenge, mimetype='text/plain')
+        else:
+            return jsonify({"status": "error", "message": "Verificación fallida"}), 403
+
+    elif request.method == 'POST':
+        data = request.json
+        logger.info("Webhook recibido:", data)
+        return jsonify({"status": "ok"}), 200
+
+
+def respond_to_comment(comment_text, post_id, user):
+    """Responder a comentario basado en palabras clave o respuesta predeterminada"""
+    config = load_config()  # Carga configuración global (default_response, keywords)
+    matched = False
+
+    # Buscar coincidencias con palabras clave
+    for keyword, responses in config.get('keywords', {}).items():
+        if keyword.lower() in comment_text:
+            reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses[0]
+            send_instagram_comment(post_id, reply_text)
+            log_activity(comment_text, post_id, reply_text, user, matched=True)
+            matched = True
+            break
+
+    # Si no hay palabra clave, usar respuesta predeterminada
+    if not matched:
+        default_response = config.get('default_response', '')
+        if default_response:
+            send_instagram_comment(post_id, default_response)
+            log_activity(comment_text, post_id, default_response, user, matched=False)
+def send_instagram_comment(media_id, message):
+    """Enviar comentario a través de Graph API"""
+    url = f"{GRAPH_URL}/{media_id}/comments"
+    payload = {
+        'message': message,
+        'access_token': ACCESS_TOKEN
+    }
+    try:
+        response = requests.post(url, data=payload, timeout=REQUEST_TIMEOUT)
+        if response.status_code != 200:
+            logger.warning(f"No se pudo enviar el comentario: {response.text}")
+        return response.json()
+    except Exception as e:
+        logger.error(f"Error enviando comentario: {str(e)}")
+        return None
+
+def log_activity(comment_text, post_id, reply_text, user, matched=True):
+    """Registrar historial de comentarios respondidos"""
+    config = load_config()
+    timestamp = datetime.now().isoformat()
+
+    config['responded_comments'][f"{post_id}_{timestamp}"] = {
+        "usuario": user.get('username', 'Anónimo'),
+        "comentario": comment_text,
+        "respuesta": reply_text,
+        "fecha": timestamp,
+        "matched": matched
+    }
+
+    save_config(config)
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

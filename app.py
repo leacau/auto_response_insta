@@ -260,13 +260,14 @@ def serve_cached_image(filename):
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def handle_webhook():
-    """Manejar eventos de webhook desde Meta"""
+    """Manejar eventos de webhook"""
     if request.method == 'GET':
+        # Verificación inicial del webhook
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
-        challenge = request.args.get('hub.challenge')
 
         if mode and token == os.getenv('WEBHOOK_VERIFY_TOKEN'):
+            challenge = request.args.get('hub.challenge')
             return Response(challenge, mimetype='text/plain')
         else:
             return jsonify({"status": "error", "message": "Verificación fallida"}), 403
@@ -275,17 +276,21 @@ def handle_webhook():
         data = request.json
         logger.info("Webhook recibido:", data)
 
-        for entry in data.get('entry', []):
-            for change in entry.get('changes', []):
-                value = change.get('value', {})
-                comment_text = value.get('text', '').lower()
-                media_id = value.get('media_id', '') or value.get('post_id', '')
-                user = value.get('from', {})
+        try:
+            for entry in data.get('entry', []):
+                for change in entry.get('changes', []):
+                    value = change.get('value', {})
+                    comment_text = value.get('text', '').lower()
+                    post_id = value.get('media_id', '') or value.get('post_id', '')
+                    user = value.get('from', {})
 
-                if comment_text and media_id:
-                    respond_to_comment(comment_text, media_id, user)
+                    if comment_text and post_id:
+                        respond_to_comment(comment_text, post_id, user)
 
-        return jsonify({"status": "success"}), 200
+            return jsonify({"status": "success"}), 200
+        except Exception as e:
+            logger.error(f"Error procesando webhook: {str(e)}")
+            return jsonify({"status": "error", "message": str(e)}), 500
 
 
 def respond_to_comment(comment_text, post_id, user):
@@ -339,4 +344,4 @@ def log_activity(comment_text, post_id, reply_text, user, matched=True):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))

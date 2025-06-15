@@ -257,7 +257,7 @@ def serve_cached_image(filename):
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def handle_webhook():
-    """Manejar eventos de webhook desde Instagram"""
+    """Manejar eventos de webhook desde Meta"""
     if request.method == 'GET':
         # Verificación inicial del webhook
         mode = request.args.get('hub.mode')
@@ -294,20 +294,19 @@ def handle_webhook():
 
 
 def respond_to_comment(comment_text, post_id, user):
-    """Responder a un comentario usando reglas de palabras clave"""
     config = load_config_for_post(post_id)
     matched = False
 
     # Buscar coincidencias con palabras clave
     for keyword, responses in config.get('keywords', {}).items():
-        if keyword.lower() in comment_text.lower():
+        if keyword.lower() in comment_text:
             reply_text = random.choice(responses) if isinstance(responses, list) and len(responses) > 0 else responses[0]
             send_instagram_comment(post_id, reply_text)
             log_activity(comment_text, post_id, reply_text, user, matched=True)
             matched = True
             break
 
-    # Si no hay match, usar respuesta predeterminada
+    # Si no hay palabra clave, usar respuesta predeterminada
     if not matched:
         default_response = config.get('default_response', '')
         if default_response:

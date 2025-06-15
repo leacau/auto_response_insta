@@ -39,19 +39,16 @@ GRAPH_URL = "https://graph.instagram.com/v23.0"
 
 os.makedirs(IMAGE_CACHE_DIR, exist_ok=True)
 
-def load_config():
+def load_config_for_post(post_id):
+    """Cargar configuración específica para un post"""
+    config_path = f"config_{post_id}.json"
     try:
-        with open(CONFIG_FILE) as f:
-            config = json.load(f)
-            # Si no existe responded_comments, lo creamos como dict vacío
-            if 'responded_comments' not in config:
-                config['responded_comments'] = {}
-            return config
+        with open(config_path) as f:
+            return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {
             "keywords": {},
-            "default_response": "Gracias por tu comentario",
-            "responded_comments": {}  # ✅ Agregado aquí
+            "default_response": "Gracias por tu comentario!"
         }
 
 def save_config(config):
@@ -260,14 +257,14 @@ def serve_cached_image(filename):
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def handle_webhook():
-    """Manejar eventos de webhook"""
+    """Manejar eventos de webhook desde Instagram"""
     if request.method == 'GET':
         # Verificación inicial del webhook
         mode = request.args.get('hub.mode')
         token = request.args.get('hub.verify_token')
+        challenge = request.args.get('hub.challenge')
 
         if mode and token == os.getenv('WEBHOOK_VERIFY_TOKEN'):
-            challenge = request.args.get('hub.challenge')
             return Response(challenge, mimetype='text/plain')
         else:
             return jsonify({"status": "error", "message": "Verificación fallida"}), 403
@@ -287,26 +284,30 @@ def handle_webhook():
                     if comment_text and post_id:
                         respond_to_comment(comment_text, post_id, user)
 
-            return jsonify({"status": "success"}), 200
+            return jsonify({"status": "success", "message": "Evento procesado"})
         except Exception as e:
             logger.error(f"Error procesando webhook: {str(e)}")
-            return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 500
 
 
 def respond_to_comment(comment_text, post_id, user):
-    config = load_config()
+    """Responder a un comentario usando palabras clave por post"""
+    config = load_config_for_post(post_id)
     matched = False
 
     # Buscar coincidencias con palabras clave
     for keyword, responses in config.get('keywords', {}).items():
         if keyword.lower() in comment_text:
-            reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses[0]
+            reply_text = random.choice(responses) if isinstance(responses, list) and len(responses) > 0 else responses[0]
             send_instagram_comment(post_id, reply_text)
             log_activity(comment_text, post_id, reply_text, user, matched=True)
             matched = True
             break
 
-    # Si no hay match, usar respuesta predeterminada
+    # Si no hay palabra clave, usar respuesta predeterminada
     if not matched:
         default_response = config.get('default_response', '')
         if default_response:
@@ -327,12 +328,22 @@ def send_instagram_comment(media_id, message):
         logger.warning(f"No se pudo enviar el comentario: {response.text}")
     return response.json()
 
-def log_activity(comment_text, post_id, reply_text, user, matched=True):
-    """Registrar actividad"""
-    config = load_config()
-    timestamp = datetime.now().isoformat()
+def log_activity(comment_text, media_id, reply_text, user, matched=True):
+    """Registrar actividad en historial global"""
+    config_path = "config.json"
 
-    config['responded_comments'][f"{post_id}_{timestamp}"] = {
+    try:
+        with open(config_path) as f:
+            main_config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        main_config = {
+            "responded_comments": {}
+        }
+
+    timestamp = datetime.now().isoformat()
+    comment_id = f"{media_id}_{timestamp}"
+
+    main_config['responded_comments'][comment_id] = {
         "usuario": user.get('username', 'Anónimo'),
         "comentario": comment_text,
         "respuesta": reply_text,
@@ -340,7 +351,8 @@ def log_activity(comment_text, post_id, reply_text, user, matched=True):
         "matched": matched
     }
 
-    save_config(config)
+    with open(config_path, 'w') as f:
+        json.dump(main_config, f, indent=2)
 
 
 if __name__ == '__main__':

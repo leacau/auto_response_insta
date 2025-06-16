@@ -27,47 +27,68 @@ def home():
 
 @app.route('/api/get_posts', methods=['GET'])
 def get_user_posts():
-    """Obtener publicaciones del usuario"""
     try:
+        page = int(request.args.get('page', 1))
+        per_page = 5
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+
         url = f"{GRAPH_URL}/{IG_USER_ID}/media"
         params = {
             'access_token': ACCESS_TOKEN,
-            'limit': 20,
+            'limit': MAX_POSTS,
             'fields': 'id,caption,media_type,media_url,thumbnail_url,like_count,comments_count,timestamp'
         }
-        response = requests.get(url, params=params, timeout=30)
+        response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
         data = response.json()
 
         if 'error' in data:
             logger.error(f"Error de Instagram: {data['error']['message']}")
-            return jsonify({"status": "error", "message": data['error']['message']}), 500
+            return jsonify({
+                "status": "error",
+                "message": data['error']['message']
+            }), 500
 
         posts = data.get('data', [])
-        paginated_medias = posts[:5]  # Ejemplo simple, puedes mejorar con paginación real
-
+        total_posts = len(posts)
+        paginated_medias = posts[start_idx:end_idx]
         processed_posts = []
+
         for post in paginated_medias:
             media_id = post['id']
-            thumbnail_url = post.get('thumbnail_url') or post.get('media_url')
+            caption = post.get('caption', 'Sin descripción')[:80] + ("..." if len(post.get('caption', '')) > 80 else "")
+            media_type = post.get('media_type', 'UNKNOWN')
+            like_count = post.get('like_count', 0)
+            comment_count = post.get('comments_count', 0)
+            thumbnail_url = post.get('thumbnail_url')
+            if not thumbnail_url and media_type == "IMAGE":
+                thumbnail_url = post.get('media_url')
 
+            cached_thumbnail = download_and_cache_image(thumbnail_url, media_id)
             processed_posts.append({
                 "id": media_id,
-                "caption": post.get('caption', 'Sin descripción'),
-                "thumbnail": thumbnail_url or "/static/images/placeholder.jpg",
-                "like_count": post.get('like_count', 0),
-                "comment_count": post.get('comments_count', 0)
+                "caption": caption,
+                "media_type": media_type,
+                "like_count": like_count,
+                "comment_count": comment_count,
+                "thumbnail": cached_thumbnail or "/static/images/placeholder.jpg"
             })
 
+        logger.info(f"Processed posts: {processed_posts}")  # Debugging
         return jsonify({
             "status": "success",
             "posts": processed_posts,
-            "total": len(posts),
-            "has_next": False
+            "total": total_posts,
+            "page": page,
+            "per_page": per_page,
+            "has_next": end_idx < total_posts
         })
-
     except Exception as e:
         logger.error(f"Error obteniendo posts: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 @app.route('/api/post/<post_id>', methods=['GET'])
 def get_post_details(post_id):
@@ -80,6 +101,7 @@ def get_post_details(post_id):
         }
         response = requests.get(url, params=params, timeout=30)
         data = response.json()
+        logger.info(f"Response from Instagram API: {data}")
 
         if 'error' in data:
             logger.error(f"Error obteniendo detalle: {data['error']['message']}")

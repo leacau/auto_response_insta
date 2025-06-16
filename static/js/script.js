@@ -72,45 +72,31 @@ async function loadUserPosts(page = 1) {
 	const container = document.getElementById('postSelectorContainer');
 	container.innerHTML =
 		'<p><i class="fas fa-spinner fa-spin"></i> Cargando publicaciones...</p>';
-
 	try {
 		const response = await fetch(`/api/get_posts?page=${page}`);
 		const data = await response.json();
-
+		console.log('Datos de publicaciones:', data); // Debugging
 		if (data.status === 'success') {
 			container.innerHTML = '';
 			const posts = data.posts || [];
-
 			if (posts.length === 0) {
 				container.innerHTML = '<p>No hay publicaciones disponibles.</p>';
 				return;
 			}
-
 			posts.forEach((post) => {
 				const div = document.createElement('div');
 				div.className = 'post-item';
 				div.dataset.id = post.id;
-
-				// Limitar el caption a 100 caracteres
-				const shortCaption =
-					post.caption.length > 100
-						? post.caption.substring(0, 100) + '...'
-						: post.caption;
-
 				div.innerHTML = `
-                    <img src="${post.thumbnail}" alt="Miniatura del post" onerror="this.src='/static/images/placeholder.jpg'" />
-                    <small>${shortCaption}</small>
+                    <img src="${post.thumbnail}" width="100%" height="120" onerror="this.src='/static/images/placeholder.jpg'" />
+                    <small>${post.caption}</small>
                 `;
-
-				div.addEventListener('click', (e) => {
-					if (e.target.tagName === 'A') return;
+				div.addEventListener('click', () => {
 					selectedPostId = post.id;
 					loadPostDetails(post.id);
 				});
-
 				container.appendChild(div);
 			});
-
 			document.getElementById('prevPageBtn').disabled = page <= 1;
 			document.getElementById('nextPageBtn').disabled = !data.has_next;
 		} else {

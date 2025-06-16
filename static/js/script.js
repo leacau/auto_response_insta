@@ -21,8 +21,29 @@ document.addEventListener('DOMContentLoaded', function () {
 function showScreen(screenId) {
 	document
 		.querySelectorAll('.screen')
-		.forEach((screen) => screen.classList.remove('active'));
+		.forEach((s) => s.classList.remove('active'));
 	document.getElementById(screenId).classList.add('active');
+
+	if (screenId === 'rules') {
+		loadAllRules();
+	}
+}
+
+function deleteRule(post_id, keyword) {
+	fetch(`/api/delete_rule`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ post_id, keyword }),
+	})
+		.then((res) => res.json())
+		.then((data) => {
+			if (data.status === 'success') {
+				alert('Regla eliminada');
+				loadAllRules();
+			} else {
+				alert('No se pudo borrar la regla');
+			}
+		});
 }
 
 async function loadUserPosts(page = 1) {
@@ -166,4 +187,77 @@ async function saveKeywordForPost(post_id, keyword, response_text) {
 	} catch (err) {
 		statusBox.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
 	}
+
+	async function loadAllRules() {
+		const container = document.getElementById('rulesListContainer');
+		container.innerHTML =
+			'<p><i class="fas fa-spinner fa-spin"></i> Cargando reglas guardadas...</p>';
+
+		try {
+			const response = await fetch('/api/list_rules');
+			const data = await response.json();
+
+			if (data.status === 'success') {
+				container.innerHTML = '';
+				const rules = data.rules || [];
+
+				if (rules.length === 0) {
+					container.innerHTML = '<p>No hay reglas definidas.</p>';
+					return;
+				}
+
+				rules.forEach((rule) => {
+					const div = document.createElement('div');
+					div.className = 'keyword-rule';
+					div.innerHTML = `
+                    <strong>Publicación:</strong> ${rule.post_id}<br/>
+                    <strong>Palabras clave:</strong>
+                    <ul class="keyword-responses">
+                        ${Object.entries(rule.keywords)
+													.map(([k, rs]) => `<li>${k}: ${rs.join(', ')}</li>`)
+													.join('')}
+                    </ul>
+                `;
+					container.appendChild(div);
+				});
+			} else {
+				container.innerHTML = `<p class="error">Error: ${data.message}</p>`;
+			}
+		} catch (error) {
+			container.innerHTML = `<p class="error">Error de conexión: ${error.message}</p>`;
+		}
+	}
+	document.getElementById('saveNewRuleBtn').addEventListener('click', () => {
+		const post_id = document.getElementById('rulePostId').value.trim();
+		const keyword = document.getElementById('ruleKeyword').value.trim();
+		const responses = document.getElementById('ruleResponses').value.trim();
+		const statusBox = document.getElementById('newRuleStatusBox');
+
+		if (!post_id || !keyword || !responses) {
+			statusBox.innerHTML = `<p class="error">Completa todos los campos</p>`;
+			return;
+		}
+
+		statusBox.innerHTML =
+			'<p><i class="fas fa-spinner fa-spin"></i> Guardando regla...</p>';
+
+		fetch('/api/add_rule', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ post_id, keyword, responses }),
+		})
+			.then((res) => res.json())
+			.then((data) => {
+				if (data.status === 'success') {
+					statusBox.innerHTML =
+						'<p><i class="fas fa-check-circle"></i> Regla guardada con éxito</p>';
+					loadAllRules(); // Recargar lista
+				} else {
+					statusBox.innerHTML = `<p class="error">Error: ${data.message}</p>`;
+				}
+			})
+			.catch((err) => {
+				statusBox.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+			});
+	});
 }

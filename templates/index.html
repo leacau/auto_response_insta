@@ -12,6 +12,7 @@
 	<body>
 		<div id="app">
 			<!-- Pantalla principal -->
+			<button class="tab-btn" data-tab="rules">Reglas</button>
 			<div id="screen-home" class="screen active">
 				<header>
 					<h1><i class="fas fa-robot"></i> Instagram Bot</h1>
@@ -37,6 +38,30 @@
 				<div id="postDetail">
 					<p><i class="fas fa-spinner fa-spin"></i> Cargando detalles...</p>
 				</div>
+			</div>
+		</div>
+		<!-- Panel de Reglas -->
+		<div id="screen-rules" class="screen">
+			<button id="backToHomeBtnFromRules" class="btn-back">
+				<i class="fas fa-arrow-left"></i> Volver
+			</button>
+			<h2>Gestión de Palabras Clave</h2>
+
+			<div id="rulesListContainer">
+				<p><i class="fas fa-spinner fa-spin"></i> Cargando reglas...</p>
+			</div>
+
+			<div class="card" id="addRuleCard">
+				<h3>Agregar Nueva Regla</h3>
+				<input type="text" id="rulePostId" placeholder="ID del Post" />
+				<input type="text" id="ruleKeyword" placeholder="Palabra clave" />
+				<textarea
+					id="ruleResponses"
+					rows="4"
+					placeholder="Hasta 7 frases, separadas por comas"
+				></textarea>
+				<button id="saveNewRuleBtn" class="btn-primary">Guardar Regla</button>
+				<div id="newRuleStatusBox" class="status-box"></div>
 			</div>
 		</div>
 

@@ -353,6 +353,92 @@ def log_activity(comment_text, media_id, reply_text, user, matched=True):
     with open(config_path, 'w') as f:
         json.dump(main_config, f, indent=2)
 
+@app.route('/api/list_rules', methods=['GET'])
+def list_all_rules():
+    """Mostrar todas las reglas guardadas"""
+    try:
+        from glob import glob
+        import os
+
+        rule_files = glob("config_*.json")
+        rules = []
+
+        for file in rule_files:
+            with open(file) as f:
+                config = json.load(f)
+                post_id = config.get('post_id', file.replace('config_', '').replace('.json', ''))
+                rules.append({
+                    "post_id": post_id,
+                    "keywords": config.get('keywords', {}),
+                    "file": file
+                })
+
+        return jsonify({"status": "success", "rules": rules})
+    except Exception as e:
+        logger.error(f"Error listando reglas: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+@app.route('/api/add_rule', methods=['POST'])
+def add_new_keyword_rule():
+    """Agregar una palabra clave nueva a un post específico"""
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        keyword = data.get('keyword')
+        responses = data.get('responses')
+
+        if not post_id or not keyword or not responses:
+            return jsonify({"status": "error", "message": "Faltan datos"}), 400
+
+        config_path = f"config_{post_id}.json"
+        try:
+            with open(config_path) as f:
+                config = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            config = {"keywords": {}, "default_response": "Gracias por tu comentario"}
+
+        response_list = [r.strip() for r in responses.split(",") if r.strip()]
+        if len(response_list) > 7:
+            return jsonify({"status": "error", "message": "Máximo 7 respuestas por palabra clave"}), 400
+
+        config["keywords"][keyword] = response_list
+
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+
+        return jsonify({"status": "success", "message": "Regla agregada correctamente"})
+    except Exception as e:
+        logger.error(f"Error al agregar regla: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+@app.route('/api/delete_rule', methods=['POST'])
+def delete_keyword_rule():
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        keyword = data.get('keyword')
+
+        if not post_id or not keyword:
+            return jsonify({"status": "error", "message": "Datos incompletos"}), 400
+
+        config_path = f"config_{post_id}.json"
+
+        if not os.path.exists(config_path):
+            return jsonify({"status": "error", "message": "Archivo no encontrado"}), 404
+
+        with open(config_path) as f:
+            config = json.load(f)
+
+        if keyword in config.get('keywords', {}):
+            del config['keywords'][keyword]
+
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+
+        return jsonify({"status": "success", "message": "Regla eliminada"})
+    except Exception as e:
+        logger.error(f"Error borrando regla: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == '__main__':

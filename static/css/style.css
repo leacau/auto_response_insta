@@ -173,3 +173,32 @@ header p {
     color: red;
     text-align: center;
 }
+
+#addRuleCard input,
+#addRuleCard textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.keyword-rule {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+.keyword-rule strong {
+    color: #333;
+}
+.keyword-responses {
+    list-style: none;
+    padding: 0;
+}
+.keyword-responses li {
+    background: white;
+    margin-top: 5px;
+    padding: 8px 12px;
+    border-radius: 4px;
+}

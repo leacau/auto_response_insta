@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory, render_template
 import logging
 import os
 from dotenv import load_dotenv
+from werkzeug.utils import secure_filename
 load_dotenv()
 import json
 import logging
@@ -19,7 +20,10 @@ logger = logging.getLogger(__name__)
 # Constantes
 ACCESS_TOKEN = os.getenv('INSTAGRAM_ACCESS_TOKEN')
 IG_USER_ID = os.getenv('INSTAGRAM_USER_ID')
+MAX_POSTS = int(os.getenv('MAX_POSTS', 100))  # Máximo de posts a obtener
+REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', 30))  # Timeout para las solicitudes a la API
 GRAPH_URL = "https://graph.instagram.com/v23.0" 
+IMAGE_CACHE_DIR = 'static/cached_images'
 
 @app.route('/')
 def home():
@@ -89,6 +93,37 @@ def get_user_posts():
             "status": "error",
             "message": str(e)
         }), 500
+
+def download_and_cache_image(image_url: str, post_id: str) -> str:
+    """Descargar y cachear imágenes localmente"""
+    if not image_url:
+        return "/static/images/placeholder.jpg"
+
+    filename = secure_filename(f"ig_{post_id}.jpg")
+    filepath = os.path.join(IMAGE_CACHE_DIR, filename)
+
+    # Si ya está cacheada, devolverla
+    if os.path.exists(filepath):
+        return f"/{filepath}"
+
+    try:
+        response = requests.get(
+            image_url,
+            headers={'User-Agent': 'Mozilla/5.0'},
+            stream=True,
+            timeout=REQUEST_TIMEOUT
+        )
+        if response.status_code == 200:
+            with open(filepath, 'wb') as f:
+                for chunk in response.iter_content(1024):
+                    f.write(chunk)
+            return f"/{filepath}"
+        else:
+            logger.warning(f"No se pudo descargar la miniatura de {image_url}")
+            return "/static/images/placeholder.jpg"
+    except Exception as e:
+        logger.error(f"Error descargando imagen: {str(e)}")
+        return "/static/images/placeholder.jpg"
 
 @app.route('/api/post/<post_id>', methods=['GET'])
 def get_post_details(post_id):

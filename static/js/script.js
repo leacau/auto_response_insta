@@ -4,24 +4,6 @@ let selectedPostId = null;
 document.addEventListener('DOMContentLoaded', function () {
 	loadUserPosts(currentPage);
 
-	// Botón de política de privacidad
-	document.getElementById('privacyBtn')?.addEventListener('click', () => {
-		showScreen('screen-privacy');
-	});
-
-	// Botón para volver desde política de privacidad
-	document
-		.getElementById('backFromPrivacyBtn')
-		?.addEventListener('click', () => {
-			// Volver a la pantalla anterior (home o details)
-			const previousScreen =
-				document.querySelector('.screen.active') ===
-				document.getElementById('screen-details')
-					? 'screen-details'
-					: 'screen-home';
-			showScreen(previousScreen);
-		});
-
 	// Paginación
 	document.getElementById('prevPageBtn')?.addEventListener('click', () => {
 		if (currentPage > 1) {
@@ -35,94 +17,86 @@ document.addEventListener('DOMContentLoaded', function () {
 		loadUserPosts(currentPage);
 	});
 
-	// Botón de volver
+	// Botón "Volver"
 	document.getElementById('backToHomeBtn')?.addEventListener('click', () => {
 		showScreen('screen-home');
 	});
 
-	// Cargar reglas cuando se hace clic en "Reglas"
+	// Botón de política de privacidad
+	document.getElementById('privacyBtn')?.addEventListener('click', () => {
+		showScreen('screen-privacy');
+	});
+
 	document
-		.getElementById('screen-details')
-		?.querySelectorAll('.tab-btn')
-		.forEach((button) => {
-			button.addEventListener('click', () => {
-				const tab = button.getAttribute('data-tab');
-				document
-					.querySelectorAll('.tab-content')
-					.forEach((content) => content.classList.remove('active'));
-				document.getElementById(tab).classList.add('active');
-			});
+		.getElementById('backFromPrivacyBtn')
+		?.addEventListener('click', () => {
+			const previous =
+				document.querySelector('.screen.active').id === 'screen-details'
+					? 'screen-details'
+					: 'screen-home';
+			showScreen(previous);
 		});
 
-	// Guardar nueva palabra clave
+	// Tabs
+	document.querySelectorAll('.tab-btn').forEach((button) => {
+		button.addEventListener('click', () => {
+			const tab = button.dataset.tab;
+			document
+				.querySelectorAll('.tab-content')
+				.forEach((content) => content.classList.remove('active'));
+			document.getElementById(tab).classList.add('active');
+		});
+	});
+
+	// Guardar palabra clave
 	document.getElementById('saveNewRuleBtn')?.addEventListener('click', () => {
 		const post_id = document.getElementById('rulePostId').value.trim();
 		const keyword = document.getElementById('ruleKeyword').value.trim();
 		const responses = document.getElementById('ruleResponses').value.trim();
 
-		if (!post_id || !keyword || !responses) {
-			alert('Por favor completa todos los campos');
+		if (!keyword || !responses) {
+			alert('Por favor completa ambos campos');
 			return;
 		}
+
 		saveKeywordForPost(post_id, keyword, responses);
 	});
 });
 
 function showScreen(screenId) {
-	// Actualizar la URL según la pantalla
-	const urlMap = {
-		'screen-home': '/',
-		'screen-details': '/detalle',
-		'screen-privacy': '/politica_de_privacidad',
-	};
-
-	if (urlMap[screenId]) {
-		history.pushState({ screen: screenId }, '', urlMap[screenId]);
-	}
-
 	document
 		.querySelectorAll('.screen')
 		.forEach((s) => s.classList.remove('active'));
 	document.getElementById(screenId).classList.add('active');
+
+	// Si es screen-details, cargar pestaña activa
+	if (screenId === 'screen-details') {
+		const firstTab = document.querySelector('.tab-btn.active').dataset.tab;
+		document
+			.querySelectorAll('.tab-content')
+			.forEach((c) => c.classList.remove('active'));
+		document.getElementById(firstTab).classList.add('active');
+	}
 }
-
-// Manejar el botón de retroceso del navegador
-window.addEventListener('popstate', function (event) {
-	if (event.state && event.state.screen) {
-		showScreen(event.state.screen);
-	} else {
-		showScreen('screen-home');
-	}
-});
-
-// Al cargar la página, verificar la URL
-document.addEventListener('DOMContentLoaded', function () {
-	const path = window.location.pathname;
-	if (path === '/politica_de_privacidad') {
-		showScreen('screen-privacy');
-	} else if (path === '/detalle') {
-		// Aquí podrías cargar el último post visto si lo necesitas
-		showScreen('screen-details');
-	} else {
-		showScreen('screen-home');
-	}
-});
 
 async function loadUserPosts(page = 1) {
 	const container = document.getElementById('postSelectorContainer');
 	container.innerHTML =
 		'<p><i class="fas fa-spinner fa-spin"></i> Cargando publicaciones...</p>';
+
 	try {
 		const response = await fetch(`/api/get_posts?page=${page}`);
 		const data = await response.json();
-		console.log('Datos de publicaciones:', data); // Debugging
+
 		if (data.status === 'success') {
 			container.innerHTML = '';
 			const posts = data.posts || [];
+
 			if (posts.length === 0) {
 				container.innerHTML = '<p>No hay publicaciones disponibles.</p>';
 				return;
 			}
+
 			posts.forEach((post) => {
 				const div = document.createElement('div');
 				div.className = 'post-item';
@@ -137,6 +111,7 @@ async function loadUserPosts(page = 1) {
 				});
 				container.appendChild(div);
 			});
+
 			document.getElementById('prevPageBtn').disabled = page <= 1;
 			document.getElementById('nextPageBtn').disabled = !data.has_next;
 		} else {
@@ -148,128 +123,122 @@ async function loadUserPosts(page = 1) {
 }
 
 async function loadPostDetails(post_id) {
-	const detailContainer = document.getElementById('responder');
-	detailContainer.innerHTML =
-		'<p><i class="fas fa-spinner fa-spin"></i> Cargando detalles...</p>';
+	const responderContainer = document.getElementById('responder');
+
+	responderContainer.innerHTML =
+		'<p><i class="fas fa-spinner fa-spin"></i> Cargando detalles del post...</p>';
 
 	try {
 		const response = await fetch(`/api/post/${post_id}`);
 		const data = await response.json();
-		const commentResponse = await fetch(`/api/post/${post_id}/comments`);
-		const commentData = await commentResponse.json();
-		console.log('Data comments:', commentData.comments); // Debugging
 
 		if (data.status === 'success') {
 			const post = data.post;
-			console.log(post);
 
-			detailContainer.innerHTML = `
-                <button id="backToHomeBtn" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</button>
-                <div class="post-detail">
-                    <img id="detailThumbnail" src="${
-											post.thumbnail
-										}" width="100%" style="max-width: 400px; border-radius: 10px;" onerror="this.src="${
-				post.url
-			}"">
-                    <div class="post-info">
-                        <h3>Caption:</h3>
-                        <p id="detailCaption">${post.caption}</p>
-                        <h3>Likes:</h3>
-                        <p id="detailLikes">${post.like_count}</p>
-                        <h3>Comentarios:</h3>
-                        <p id="detailComments">${post.comment_count}</p>
-						<h3>Fecha:</h3>
-						<p id="detailTimestamp">${
-							post.timestamp
-								? new Date(post.timestamp).toLocaleString()
-								: 'Fecha no disponible'
-						}</p>
-                    </div>
-                </div>`;
+			responderContainer.innerHTML = `
+				<div class="post-details">
+					<img id="detailThumbnail" src="${
+						post.thumbnail || '/static/images/placeholder.jpg'
+					}" width="100%" height="200" onerror="this.src='/static/images/placeholder.jpg'" />
+					<p id="detailCaption">${post.caption || 'Sin descripción'}</p>
+					<p><strong>Likes:</strong> <span id="detailLikes">${
+						post.like_count || 0
+					}</span></p>
+					<p><strong>Comentarios:</strong> <span id="detailComments">${
+						post.comment_count || 0
+					}</span></p>
+					<p><strong>Fecha:</strong> <span id="detailTimestamp">${new Date(
+						post.timestamp
+					).toLocaleString()}</span></p>
+					<div id="commentsList"><strong>Comentarios:</strong>></div>
+					<div class="tabs"> `;
 
-			// Actualizar el ID del post en Configuración
-			document.getElementById('rulePostId').value = post.id;
-			/* 
-			// Mostrar datos del post en pestaña "Responder"
-			const thumbnail = document.getElementById('detailThumbnail');
-			thumbnail.src = post.thumbnail || '/static/images/placeholder.jpg';
+			// Cargar comentarios solo si no están ya cargados
+			const commentsList = document.getElementById('commentsList');
+			console.log(commentsList);
 
-			document.getElementById('detailCaption').textContent =
-				post.caption || 'Sin descripción';
-			document.getElementById('detailLikes').textContent = post.like_count || 0;
-			document.getElementById('detailComments').textContent =
-				post.comment_count || 0;
-			document.getElementById('detailTimestamp').textContent = post.timestamp
-				? new Date(post.timestamp).toLocaleString()
-				: 'Fecha no disponible';
+			if (!document.getElementById('commentsListLoaded')) {
+				const commentResponse = await fetch(`/api/comments/${post_id}`);
+				const commentData = await commentResponse.json();
 
-			*/
+				if (commentData.status === 'success') {
+					const comments = commentData.comments || [];
+					if (comments.length === 0) {
+						commentsList.innerHTML = '<p>No hay comentarios aún.</p>';
+					} else {
+						commentsList.innerHTML = '';
+						comments.forEach((comment) => {
+							const commentDiv = document.createElement('div');
+							commentDiv.className = 'comment-item';
+							commentDiv.innerHTML = `
+                                <strong>${comment.username}</strong>: "${
+								comment.text
+							}"
+                                <small>${new Date(
+																	comment.timestamp
+																).toLocaleString()}</small>
+                            `;
+							commentsList.appendChild(commentDiv);
+						});
+					}
+				} else {
+					commentsList.innerHTML = `<p class="error">Error: ${commentData.message}</p>`;
+				}
+			}
+
+			// Mostrar pestaña activa
+			const currentTab = document.querySelector('.tab-btn.active').dataset.tab;
+			document
+				.querySelectorAll('.tab-content')
+				.forEach((c) => c.classList.remove('active'));
+			document.getElementById(currentTab).classList.add('active');
 
 			// Mostrar pestaña de detalles
+			console.log('Mostrando pantalla de detalles');
+
 			showScreen('screen-details');
-
-			// Añadir botón de procesar comentarios si no existe
-			if (!document.getElementById('processCommentsBtn')) {
-				const processBtn = document.createElement('button');
-				processBtn.id = 'processCommentsBtn';
-				processBtn.className = 'btn-primary';
-				processBtn.innerHTML =
-					'<i class="fas fa-robot"></i> Procesar Comentarios';
-				processBtn.onclick = () => processPostComments(post.id);
-
-				const configTab = document.getElementById('config');
-				configTab.insertBefore(
-					processBtn,
-					document.getElementById('newRuleStatusBox')
-				);
-			}
 		} else {
-			detailContainer.innerHTML =
-				'<p class="error">No se pudo cargar el post.</p>';
+			responderContainer.innerHTML = `<p class="error">No se pudo cargar el post.</p>`;
 		}
 	} catch (error) {
-		detailContainer.innerHTML = `<p class="error">Error de conexión: ${error.message}</p>`;
+		responderContainer.innerHTML = `<p class="error">Error de conexión: ${error.message}</p>`;
 	}
 }
+
 async function loadPostComments(post_id) {
 	const commentsList = document.getElementById('commentsList');
 	commentsList.innerHTML =
 		'<p><i class="fas fa-spinner fa-spin"></i> Cargando comentarios...</p>';
 
 	try {
-		const response = await fetch(`/api/post/${post_id}/comments`);
+		const response = await fetch(`/api/comments/${post_id}`);
 		const data = await response.json();
 
 		if (data.status === 'success') {
+			commentsList.innerHTML = '';
 			const comments = data.comments || [];
-			document.getElementById('commentsCount').textContent = comments.length;
 
 			if (comments.length === 0) {
-				commentsList.innerHTML =
-					'<p class="no-comments">No hay comentarios en este post.</p>';
+				commentsList.innerHTML = '<p>No hay comentarios aún.</p>';
 				return;
 			}
 
-			commentsList.innerHTML = '';
 			comments.forEach((comment) => {
-				const commentItem = document.createElement('div');
-				commentItem.className = 'comment-item';
-				commentItem.innerHTML = `
-                    <div class="comment-user">${
-											comment.username || 'Usuario anónimo'
-										}</div>
-                    <div class="comment-text">${comment.text}</div>
-                    <div class="comment-date">${new Date(
-											comment.timestamp
-										).toLocaleString()}</div>
+				const commentDiv = document.createElement('div');
+				commentDiv.className = 'comment-item';
+				commentDiv.innerHTML = `
+                    <strong>${comment.username}</strong>: "${comment.text}"
+                    <small>${new Date(
+											comment.timestamp * 1000
+										).toLocaleString()}</small>
                 `;
-				commentsList.appendChild(commentItem);
+				commentsList.appendChild(commentDiv);
 			});
 		} else {
 			commentsList.innerHTML = `<p class="error">Error: ${data.message}</p>`;
 		}
-	} catch (error) {
-		commentsList.innerHTML = `<p class="error">Error de conexión: ${error.message}</p>`;
+	} catch (err) {
+		commentsList.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
 	}
 }
 
@@ -278,21 +247,32 @@ async function saveKeywordForPost(post_id, keyword, responses) {
 	statusBox.innerHTML =
 		'<p><i class="fas fa-spinner fa-spin"></i> Guardando regla...</p>';
 
+	const responseArray = responses
+		.split(',')
+		.map((r) => r.trim())
+		.filter(Boolean);
+	if (responseArray.length === 0) {
+		statusBox.innerHTML = `<p class="error">Debes ingresar al menos una respuesta</p>`;
+		return;
+	}
+
+	if (responseArray.length > 7) {
+		statusBox.innerHTML = `<p class="error">Máximo 7 respuestas por palabra clave</p>`;
+		return;
+	}
+
 	try {
-		const response = await fetch('/api/add_rule', {
+		const res = await fetch('/api/add_rule', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ post_id, keyword, responses }),
+			body: JSON.stringify({ post_id, keyword, responses: responseArray }),
 		});
 
-		const result = await response.json();
+		const result = await res.json();
 
 		if (result.status === 'success') {
-			statusBox.innerHTML =
-				'<p><i class="fas fa-check-circle"></i> Regla guardada con éxito</p>';
-			document.getElementById('ruleKeyword').value = '';
-			document.getElementById('ruleResponses').value = '';
-			loadAllRules(post_id); // Recargar lista de reglas
+			statusBox.innerHTML = `<p class="success"><i class="fas fa-check-circle"></i> Regla guardada con éxito</p>`;
+			loadAllRules(post_id); // Recargar reglas
 		} else {
 			statusBox.innerHTML = `<p class="error">Error: ${result.message}</p>`;
 		}
@@ -302,44 +282,45 @@ async function saveKeywordForPost(post_id, keyword, responses) {
 }
 
 async function loadAllRules(post_id = '') {
-	const container = document.getElementById('rulesListContainer');
-	container.innerHTML =
-		'<p><i class="fas fa-spinner fa-spin"></i> Cargando reglas guardadas...</p>';
+	const rulesContainer = document.getElementById('rulesListContainer');
+	rulesContainer.innerHTML =
+		'<p><i class="fas fa-spinner fa-spin"></i> Cargando reglas...</p>';
 
 	try {
 		const response = await fetch('/api/list_rules');
 		const data = await response.json();
 
 		if (data.status === 'success') {
-			container.innerHTML = '';
+			rulesContainer.innerHTML = '';
 			const rules = data.rules || [];
 
 			if (rules.length === 0) {
-				container.innerHTML = '<p>No hay reglas definidas.</p>';
+				rulesContainer.innerHTML = '<p>No hay reglas definidas.</p>';
 				return;
 			}
 
 			rules.forEach((rule) => {
-				const div = document.createElement('div');
-				div.className = 'keyword-rule';
-				div.innerHTML = `
-                    <strong>Publicación:</strong> ${rule.post_id}<br/>
-                    <ul class="keyword-responses">
-                        ${Object.entries(rule.keywords)
-													.map(
-														([k, rs]) =>
-															`<li><strong>${k}:</strong> ${rs.join(', ')}</li>`
-													)
-													.join('')}
-                    </ul>
-                `;
-				container.appendChild(div);
+				if (rule.post_id === post_id) {
+					Object.entries(rule.keywords).forEach(([key, responses]) => {
+						const ruleDiv = document.createElement('div');
+						ruleDiv.className = 'keyword-rule';
+						ruleDiv.innerHTML = `
+                            <strong>${key}:</strong>
+                            <ul>
+                                ${responses
+																	.map((resp) => `<li>${resp}</li>`)
+																	.join('')}
+                            </ul>
+                        `;
+						rulesContainer.appendChild(ruleDiv);
+					});
+				}
 			});
 		} else {
-			container.innerHTML = `<p class="error">Error: ${data.message}</p>`;
+			rulesContainer.innerHTML = `<p class="error">Error: ${data.message}</p>`;
 		}
-	} catch (error) {
-		container.innerHTML = `<p class="error">Error de conexión: ${error.message}</p>`;
+	} catch (err) {
+		rulesContainer.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
 	}
 }
 
@@ -354,92 +335,22 @@ async function loadHistory() {
 
 		if (data.status === 'success') {
 			historyList.innerHTML = '';
+			const history = data.history || {};
 
-			if (Object.keys(data.history).length === 0) {
-				historyList.innerHTML =
-					'<p>No hay historial de comentarios respondidos.</p>';
-				return;
-			}
-
-			// Ordenar por fecha (más reciente primero)
-			const sortedHistory = Object.entries(data.history).sort(
-				(a, b) => new Date(b[1].fecha) - new Date(a[1].fecha)
-			);
-
-			sortedHistory.forEach(([id, item]) => {
-				const historyItem = document.createElement('div');
-				historyItem.className = 'history-item';
-				if (item.matched) {
-					historyItem.style.borderLeft = '4px solid #28a745';
-				}
-
-				historyItem.innerHTML = `
-                    <p><strong>Usuario:</strong> ${item.usuario}</p>
-                    <p><strong>Comentario:</strong> ${item.comentario}</p>
-                    <p><strong>Respuesta:</strong> ${item.respuesta}</p>
-                    <p><small>${new Date(
-											item.fecha
-										).toLocaleString()}</small></p>
-                    ${
-											item.matched
-												? '<span class="matched-tag"><i class="fas fa-tag"></i> Palabra clave</span>'
-												: ''
-										}
+			Object.entries(history).forEach(([id, item]) => {
+				const historyDiv = document.createElement('div');
+				historyDiv.className = 'history-item';
+				historyDiv.innerHTML = `
+                    <strong>${item.usuario}</strong>: "${item.comentario}"
+                    <br/>→ "${item.respuesta}"
+                    <small>${new Date(item.fecha).toLocaleString()}</small>
                 `;
-				historyList.appendChild(historyItem);
+				historyList.appendChild(historyDiv);
 			});
 		} else {
 			historyList.innerHTML = `<p class="error">Error: ${data.message}</p>`;
 		}
 	} catch (err) {
 		historyList.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
-	}
-}
-
-document.getElementById('historial').addEventListener('show', loadHistory);
-
-async function processPostComments(post_id) {
-	const statusBox = document.getElementById('newRuleStatusBox');
-	statusBox.innerHTML =
-		'<p><i class="fas fa-spinner fa-spin"></i> Procesando comentarios...</p>';
-	statusBox.className = 'status-box processing';
-
-	try {
-		const response = await fetch('/api/process_comments', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ post_id }),
-		});
-
-		const result = await response.json();
-
-		if (result.status === 'success') {
-			let matchedCount = result.new_responses.filter(
-				(r) => r.matched_keyword
-			).length;
-
-			statusBox.innerHTML = `
-                <p class="success">
-                    <i class="fas fa-check-circle"></i> 
-                    ${result.message}<br>
-                    <small>Coincidencias: ${matchedCount}</small>
-                </p>
-            `;
-			statusBox.classList.add('success');
-
-			// Actualizar la lista de comentarios
-			await loadPostComments(post_id);
-
-			// Actualizar el historial
-			if (document.getElementById('historial').classList.contains('active')) {
-				loadHistory();
-			}
-		} else {
-			statusBox.innerHTML = `<p class="error">Error: ${result.message}</p>`;
-			statusBox.classList.add('error');
-		}
-	} catch (err) {
-		statusBox.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
-		statusBox.classList.add('error');
 	}
 }

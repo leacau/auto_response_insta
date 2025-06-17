@@ -4,6 +4,24 @@ let selectedPostId = null;
 document.addEventListener('DOMContentLoaded', function () {
 	loadUserPosts(currentPage);
 
+	// Botón de política de privacidad
+	document.getElementById('privacyBtn')?.addEventListener('click', () => {
+		showScreen('screen-privacy');
+	});
+
+	// Botón para volver desde política de privacidad
+	document
+		.getElementById('backFromPrivacyBtn')
+		?.addEventListener('click', () => {
+			// Volver a la pantalla anterior (home o details)
+			const previousScreen =
+				document.querySelector('.screen.active') ===
+				document.getElementById('screen-details')
+					? 'screen-details'
+					: 'screen-home';
+			showScreen(previousScreen);
+		});
+
 	// Paginación
 	document.getElementById('prevPageBtn')?.addEventListener('click', () => {
 		if (currentPage > 1) {
@@ -51,22 +69,44 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function showScreen(screenId) {
-	const screens = document.querySelectorAll('.screen');
+	// Actualizar la URL según la pantalla
+	const urlMap = {
+		'screen-home': '/',
+		'screen-details': '/detalle',
+		'screen-privacy': '/politica_de_privacidad',
+	};
 
-	screens.forEach((s) => s.classList.remove('active'));
-	document.getElementById(screenId).classList.add('active');
-
-	// Si es la pantalla de detalles, cargar pestaña activa
-	if (screenId === 'screen-details') {
-		const firstTab = document
-			.querySelector('.tab-btn.active')
-			.getAttribute('data-tab');
-		document
-			.querySelectorAll('.tab-content')
-			.forEach((c) => c.classList.remove('active'));
-		document.getElementById(firstTab).classList.add('active');
+	if (urlMap[screenId]) {
+		history.pushState({ screen: screenId }, '', urlMap[screenId]);
 	}
+
+	document
+		.querySelectorAll('.screen')
+		.forEach((s) => s.classList.remove('active'));
+	document.getElementById(screenId).classList.add('active');
 }
+
+// Manejar el botón de retroceso del navegador
+window.addEventListener('popstate', function (event) {
+	if (event.state && event.state.screen) {
+		showScreen(event.state.screen);
+	} else {
+		showScreen('screen-home');
+	}
+});
+
+// Al cargar la página, verificar la URL
+document.addEventListener('DOMContentLoaded', function () {
+	const path = window.location.pathname;
+	if (path === '/politica_de_privacidad') {
+		showScreen('screen-privacy');
+	} else if (path === '/detalle') {
+		// Aquí podrías cargar el último post visto si lo necesitas
+		showScreen('screen-details');
+	} else {
+		showScreen('screen-home');
+	}
+});
 
 async function loadUserPosts(page = 1) {
 	const container = document.getElementById('postSelectorContainer');
@@ -115,9 +155,14 @@ async function loadPostDetails(post_id) {
 	try {
 		const response = await fetch(`/api/post/${post_id}`);
 		const data = await response.json();
+		const commentResponse = await fetch(`/api/post/${post_id}/comments`);
+		const commentData = await commentResponse.json();
+		console.log('Data comments:', commentData.comments); // Debugging
 
 		if (data.status === 'success') {
 			const post = data.post;
+			console.log(post);
+
 			detailContainer.innerHTML = `
                 <button id="backToHomeBtn" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</button>
                 <div class="post-detail">
@@ -184,6 +229,47 @@ async function loadPostDetails(post_id) {
 		}
 	} catch (error) {
 		detailContainer.innerHTML = `<p class="error">Error de conexión: ${error.message}</p>`;
+	}
+}
+async function loadPostComments(post_id) {
+	const commentsList = document.getElementById('commentsList');
+	commentsList.innerHTML =
+		'<p><i class="fas fa-spinner fa-spin"></i> Cargando comentarios...</p>';
+
+	try {
+		const response = await fetch(`/api/post/${post_id}/comments`);
+		const data = await response.json();
+
+		if (data.status === 'success') {
+			const comments = data.comments || [];
+			document.getElementById('commentsCount').textContent = comments.length;
+
+			if (comments.length === 0) {
+				commentsList.innerHTML =
+					'<p class="no-comments">No hay comentarios en este post.</p>';
+				return;
+			}
+
+			commentsList.innerHTML = '';
+			comments.forEach((comment) => {
+				const commentItem = document.createElement('div');
+				commentItem.className = 'comment-item';
+				commentItem.innerHTML = `
+                    <div class="comment-user">${
+											comment.username || 'Usuario anónimo'
+										}</div>
+                    <div class="comment-text">${comment.text}</div>
+                    <div class="comment-date">${new Date(
+											comment.timestamp
+										).toLocaleString()}</div>
+                `;
+				commentsList.appendChild(commentItem);
+			});
+		} else {
+			commentsList.innerHTML = `<p class="error">Error: ${data.message}</p>`;
+		}
+	} catch (error) {
+		commentsList.innerHTML = `<p class="error">Error de conexión: ${error.message}</p>`;
 	}
 }
 
@@ -316,7 +402,7 @@ async function processPostComments(post_id) {
 	const statusBox = document.getElementById('newRuleStatusBox');
 	statusBox.innerHTML =
 		'<p><i class="fas fa-spinner fa-spin"></i> Procesando comentarios...</p>';
-	statusBox.className = 'status-box';
+	statusBox.className = 'status-box processing';
 
 	try {
 		const response = await fetch('/api/process_comments', {
@@ -328,14 +414,21 @@ async function processPostComments(post_id) {
 		const result = await response.json();
 
 		if (result.status === 'success') {
+			let matchedCount = result.new_responses.filter(
+				(r) => r.matched_keyword
+			).length;
+
 			statusBox.innerHTML = `
                 <p class="success">
                     <i class="fas fa-check-circle"></i> 
-                    ${result.message}
+                    ${result.message}<br>
+                    <small>Coincidencias: ${matchedCount}</small>
                 </p>
-                <p>Nuevas respuestas: ${result.new_responses.length}</p>
             `;
 			statusBox.classList.add('success');
+
+			// Actualizar la lista de comentarios
+			await loadPostComments(post_id);
 
 			// Actualizar el historial
 			if (document.getElementById('historial').classList.contains('active')) {

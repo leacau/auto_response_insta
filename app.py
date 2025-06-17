@@ -25,6 +25,12 @@ REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', 30))  # Timeout para las soli
 GRAPH_URL = "https://graph.instagram.com/v23.0" 
 IMAGE_CACHE_DIR = 'static/cached_images'
 
+@app.route('/politica_de_privacidad')
+def privacy_policy():
+    """Redirige a la pantalla de política de privacidad"""
+    return render_template('index.html')  # La lógica de redirección se manejará en el frontend
+
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -124,38 +130,90 @@ def download_and_cache_image(image_url: str, post_id: str) -> str:
     except Exception as e:
         logger.error(f"Error descargando imagen: {str(e)}")
         return "/static/images/placeholder.jpg"
-
 @app.route('/api/post/<post_id>', methods=['GET'])
 def get_post_details(post_id):
     """Obtener detalles completos de un post"""
     try:
+        # Primero obtener los datos básicos del post
         url = f"{GRAPH_URL}/{post_id}"
         params = {
             'access_token': ACCESS_TOKEN,
-            'fields': 'id,caption,like_count,comments_count,timestamp,thumbnail_url,media_url'
+            'fields': 'id,caption,media_type,media_url,thumbnail_url,like_count,comments_count,timestamp'
         }
         response = requests.get(url, params=params, timeout=30)
-        data = response.json()
-        logger.info(f"Response from Instagram API: {data}")
+        post_data = response.json()
 
-        if 'error' in data:
-            logger.error(f"Error obteniendo detalle: {data['error']['message']}")
-            return jsonify({"status": "error", "message": data['error']['message']}), 500
+        if 'error' in post_data:
+            logger.error(f"Error obteniendo detalle del post: {post_data['error']['message']}")
+            return jsonify({"status": "error", "message": post_data['error']['message']}), 500
 
-        return jsonify({
+        # Formatear la respuesta
+        result = {
             "status": "success",
             "post": {
-                "id": data['id'],
-                "caption": data.get('caption', 'Sin descripción'),
-                "thumbnail": data.get('thumbnail_url', '') or data.get('media_url', ''),
-                "like_count": data.get('like_count', 0),
-                "comment_count": data.get('comments_count', 0),
-                "timestamp": data.get('timestamp', '')
+                "id": post_data.get('id'),
+                "caption": post_data.get('caption', 'Sin descripción'),
+                "thumbnail": post_data.get('thumbnail_url') or post_data.get('media_url', ''),
+                "like_count": post_data.get('like_count', 0),
+                "comment_count": post_data.get('comments_count', 0),
+                "timestamp": post_data.get('timestamp', '')
             }
-        })
+        }
+
+        return jsonify(result)
 
     except Exception as e:
         logger.error(f"Error obteniendo detalle del post: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/post/<post_id>/comments', methods=['GET'])
+def get_post_comments(post_id):
+    """Obtener comentarios de un post específico"""
+    try:
+        # Obtener comentarios de la API de Instagram
+        comments_url = f"{GRAPH_URL}/{post_id}/comments"
+        params = {
+            'access_token': ACCESS_TOKEN,
+            'fields': 'id,text,username,timestamp'
+        }
+        response = requests.get(comments_url, params=params, timeout=30)
+        data = response.json()
+
+        if 'error' in data:
+            logger.error(f"Error obteniendo comentarios: {data['error']['message']}")
+            return jsonify({"status": "error", "message": data['error']['message']}), 500
+
+        # También obtener comentarios respondidos del archivo de configuración
+        config_path = f"config_{post_id}.json"
+        responded_comments = {}
+        try:
+            with open(config_path) as f:
+                config = json.load(f)
+                responded_comments = config.get('responded_comments', {})
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        # Procesar comentarios
+        comments = []
+        for comment in data.get('data', []):
+            comment_id = comment['id']
+            comment_key = f"{post_id}_{comment_id}"
+            
+            comments.append({
+                'id': comment_id,
+                'username': comment.get('username', 'Anónimo'),
+                'text': comment.get('text', ''),
+                'timestamp': comment.get('timestamp', ''),
+                'responded': comment_key in responded_comments
+            })
+
+        return jsonify({
+            "status": "success",
+            "comments": comments
+        })
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo comentarios del post: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/add_rule', methods=['POST'])
@@ -305,42 +363,40 @@ def process_comments():
             else:
                 matched = True
                 
-            # 4. Enviar respuesta
+            # 4. Enviar respuesta (simulado para pruebas)
+            # En producción, descomenta esto:
+            
             reply_url = f"{GRAPH_URL}/{comment_id}/replies"
             reply_data = {
                 'message': response_text,
                 'access_token': ACCESS_TOKEN
             }
             
-            try:
-                reply_response = requests.post(reply_url, data=reply_data, timeout=30)
-                reply_result = reply_response.json()
-                
-                if 'error' in reply_result:
-                    logger.error(f"Error respondiendo comentario: {reply_result['error']['message']}")
-                    continue
-                    
-                # Registrar la respuesta
-                responded_comments[comment_key] = {
-                    'usuario': username,
-                    'comentario': comment['text'],
-                    'respuesta': response_text,
-                    'fecha': timestamp,
-                    'matched': matched
-                }
-                
-                new_responses.append({
-                    'comment_id': comment_id,
-                    'response': response_text,
-                    'matched_keyword': matched_keyword
-                })
-                
-                # Esperar para no exceder límites de la API
-                time.sleep(int(os.getenv('DELAY_ENTRE_RESPUESTAS', 5)))
-                
-            except Exception as e:
-                logger.error(f"Error al responder comentario {comment_id}: {str(e)}")
+            reply_response = requests.post(reply_url, data=reply_data, timeout=30)
+            reply_result = reply_response.json()
+            
+            if 'error' in reply_result:
+                logger.error(f"Error respondiendo comentario: {reply_result['error']['message']}")
                 continue
+            logger.info(f"Respuesta enviada a {username}: {response_text}")
+            
+            # Registrar la respuesta (incluso en modo simulado)
+            responded_comments[comment_key] = {
+                'usuario': username,
+                'comentario': comment['text'],
+                'respuesta': response_text,
+                'fecha': timestamp,
+                'matched': matched
+            }
+            
+            new_responses.append({
+                'comment_id': comment_id,
+                'response': response_text,
+                'matched_keyword': matched_keyword
+            })
+            
+            # Esperar para no exceder límites de la API
+            time.sleep(int(os.getenv('DELAY_ENTRE_RESPUESTAS', 5)))
                 
         # 5. Actualizar config con nuevos comentarios respondidos
         config['responded_comments'] = responded_comments
@@ -350,7 +406,8 @@ def process_comments():
         return jsonify({
             "status": "success",
             "message": f"Procesados {len(new_responses)} comentarios",
-            "new_responses": new_responses
+            "new_responses": new_responses,
+            'test_comments': comments_data.get('data', [])  # Para depuración
         })
         
     except Exception as e:

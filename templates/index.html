@@ -11,6 +11,10 @@
 	</head>
 	<body>
 		<div id="app">
+			<!-- Botón de política de privacidad -->
+			<button id="privacyBtn" class="privacy-btn">
+				<i class="fas fa-shield-alt"></i> Privacidad
+			</button>
 			<!-- Pantalla principal -->
 			<div id="screen-home" class="screen active">
 				<header>
@@ -65,6 +69,12 @@
 						<strong>Comentarios:</strong> <span id="detailComments">0</span>
 					</p>
 					<p><small id="detailTimestamp">Fecha no disponible</small></p>
+					<div class="comments-section">
+						<h3>Comentarios (<span id="commentsCount">0</span>)</h3>
+						<div id="commentsList" class="comments-list">
+							<!-- Los comentarios se cargarán aquí -->
+						</div>
+					</div>
 				</div>
 
 				<div id="config" class="tab-content">
@@ -107,6 +117,70 @@
 							guardadas...
 						</p>
 					</div>
+				</div>
+			</div>
+			<!-- Nueva pantalla de política de privacidad -->
+			<div id="screen-privacy" class="screen privacy-screen">
+				<button id="backFromPrivacyBtn" class="btn-back">
+					<i class="fas fa-arrow-left"></i> Volver
+				</button>
+				<div class="privacy-content">
+					<!-- Aquí va todo el contenido HTML de la política que proporcionaste -->
+					<h1>Política de Privacidad</h1>
+					<p>
+						Esta Política de Privacidad describe cómo se recopila, utiliza y
+						protege la información personal de los usuarios de este bot de
+						Instagram.
+					</p>
+					<h2>1. Información que Recopilamos</h2>
+					<p>
+						Recopilamos información de las publicaciones de Instagram que
+						seleccionas, incluyendo el ID del post, la descripción (caption), el
+						número de "me gusta" y comentarios. También recopilamos los
+						comentarios realizados por los usuarios en estas publicaciones.
+					</p>
+					<h2>2. Uso de la Información</h2>
+					<p>
+						La información recopilada se utiliza para responder a los
+						comentarios de los usuarios en las publicaciones seleccionadas,
+						utilizando palabras clave y respuestas predefinidas.
+					</p>
+					<h2>3. Almacenamiento de Datos</h2>
+					<p>
+						Los datos recopilados se almacenan localmente en el dispositivo del
+						usuario y no se comparten con terceros. El bot no almacena
+						información personal identificable.
+					</p>
+					<h2>4. Seguridad</h2>
+					<p>
+						Implementamos medidas de seguridad razonables para proteger la
+						información recopilada. Sin embargo, no podemos garantizar la
+						seguridad absoluta de los datos transmitidos a través de Internet.
+					</p>
+					<h2>5. Cambios a esta Política</h2>
+					<p>
+						Nos reservamos el derecho de modificar esta Política de Privacidad
+						en cualquier momento. Cualquier cambio será efectivo inmediatamente
+						después de su publicación en esta pantalla.
+					</p>
+					<h2>6. Contacto</h2>
+					<p>
+						Si tienes alguna pregunta o inquietud sobre esta Política de
+						Privacidad, puedes contactarnos a través del correo electrónico
+						leandrochena@gmail.com
+					</p>
+					<h2>7. Aceptación de la Política</h2>
+					<p>
+						Al utilizar este bot de Instagram, aceptas los términos de esta
+						Política de Privacidad. Si no estás de acuerdo con estos términos,
+						te recomendamos que no utilices el bot.
+					</p>
+				</div>
+				<div class="privacy-footer">
+					<p>
+						<i class="fas fa-copyright"></i> 2023 Leandro Chena. Todos los
+						derechos reservados.
+					</p>
 				</div>
 			</div>
 		</div>

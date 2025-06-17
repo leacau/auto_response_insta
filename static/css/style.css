@@ -319,3 +319,78 @@ header p {
 .screen {
     animation: fadeIn 0.3s ease-out;
 }
+
+/* Estilos para depuración */
+.response-preview {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 8px;
+    border-left: 3px solid #4CAF50;
+}
+
+.response-preview p {
+    margin: 5px 0 0;
+    font-style: italic;
+}
+
+/* Mejorar visibilidad de estados */
+.status-box.processing {
+    background: #fff3e0;
+    color: #fb8c00;
+}
+
+.status-box.processing i {
+    color: #fb8c00;
+}
+
+/* Estilos para la sección de comentarios */
+.comments-section {
+    margin-top: 20px;
+    border-top: 1px solid #eee;
+    padding-top: 15px;
+}
+
+.comments-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 10px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.comment-item {
+    padding: 10px;
+    margin-bottom: 10px;
+    background: #fafafa;
+    border-radius: 8px;
+    border-left: 3px solid #3897f0;
+}
+
+.comment-item:last-child {
+    margin-bottom: 0;
+}
+
+.comment-user {
+    font-weight: bold;
+    color: #3897f0;
+    margin-bottom: 5px;
+}
+
+.comment-text {
+    white-space: pre-line;
+    margin-bottom: 5px;
+}
+
+.comment-date {
+    font-size: 12px;
+    color: #999;
+}
+
+.no-comments {
+    color: #999;
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}

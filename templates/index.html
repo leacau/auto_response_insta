@@ -11,6 +11,32 @@
 	</head>
 	<body>
 		<div id="app">
+			<!-- Pantalla de Testeo -->
+			<div id="test" class="screen">
+				<h2>Testear Comentarios</h2>
+				<div class="form-group">
+					<label for="testPostId">ID del Post:</label>
+					<input
+						type="text"
+						id="testPostId"
+						placeholder="Ejemplo: 18040193132625647"
+					/>
+				</div>
+				<div class="form-group">
+					<label for="testComment">Texto del Comentario:</label>
+					<textarea
+						id="testComment"
+						rows="3"
+						placeholder="Ejemplo: hola este es un comentario"
+					></textarea>
+				</div>
+				<button id="runTestBtn" class="btn-primary">Probar Regla</button>
+				<div id="testResultBox" class="status-box"></div>
+
+				<hr />
+				<h2>Reglas guardadas</h2>
+				<div id="rulesListContainer"></div>
+			</div>
 			<!-- Pantalla principal -->
 			<div id="screen-home" class="screen active">
 				<header>
@@ -45,6 +71,7 @@
 					<button class="tab-btn" data-tab="config">Configuración</button>
 					<button class="tab-btn" data-tab="historial">Historial</button>
 					<button class="tab-btn" data-tab="reglas">Reglas</button>
+					<button class="tab-btn" data-tab="test">Prueba</button>
 				</div>
 
 				<div id="responder" class="tab-content active">
@@ -53,12 +80,7 @@
 
 				<div id="config" class="tab-content">
 					<h2>Configurar Respuesta Automática</h2>
-					<input
-						type="text"
-						id="rulePostId"
-						placeholder="ID del Post"
-						readonly
-					/>
+					<input type="text" id="rulePostId" placeholder="" readonly />
 					<label for="ruleKeyword">Palabra Clave</label>
 					<input type="text" id="ruleKeyword" placeholder="Ejemplo: hola" />
 					<label for="ruleResponses">Respuestas (máximo 7)</label>
@@ -69,6 +91,7 @@
 					></textarea>
 					<button id="saveNewRuleBtn" class="btn-primary">Guardar Regla</button>
 					<div id="newRuleStatusBox" class="status-box"></div>
+					<div id="rulesListContainer"></div>
 				</div>
 
 				<div id="historial" class="tab-content">
@@ -78,12 +101,20 @@
 
 				<div id="reglas" class="tab-content">
 					<h2>Gestión de Palabras Clave</h2>
-					<div id="rulesListContainer">
-						<p>
-							<i class="fas fa-spinner fa-spin"></i> Cargando reglas
-							guardadas...
-						</p>
+					<div class="form-group">
+						<label for="ruleKeyword">Palabra Clave</label>
+						<input type="text" id="ruleKeyword" placeholder="Ejemplo: hola" />
 					</div>
+					<div class="form-group">
+						<label for="ruleResponses">Respuestas (máx. 7)</label>
+						<textarea
+							id="ruleResponses"
+							rows="4"
+							placeholder="Respuesta 1, Respuesta 2,..."
+						></textarea>
+					</div>
+					<button id="saveNewRuleBtn" class="btn-primary">Guardar Regla</button>
+					<div id="newRuleStatusBox" class="status-box"></div>
 				</div>
 			</div>
 

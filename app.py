@@ -61,7 +61,7 @@ def handle_webhook():
 
     elif request.method == 'POST':
         data = request.json
-        logger.info("Evento recibido:", data)
+        logger.info("Evento recibido: %s", data)
 
         try:
             for entry in data.get('entry', []):

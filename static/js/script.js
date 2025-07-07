@@ -227,6 +227,11 @@ async function loadPostDetails(post_id) {
 
                         //asignar ID del post a los campos de prueba
                         document.getElementById('testPostId').value = post_id;
+			//asignar ID del post a los campos de regla
+			document.getElementById('rulePostId').value = post_id;
+
+			//asignr ID del post a los campos de prueba
+			document.getElementById('testPostId').value = post_id;
 
                         // Cargar comentarios del post
                         const commentsList = document.getElementById('commentsList');

@@ -78,21 +78,28 @@
 					<h2>Detalles del Post</h2>
 				</div>
 
-				<div id="config" class="tab-content">
-					<h2>Configurar Respuesta Automática</h2>
-					<input type="text" id="rulePostId" placeholder="" readonly />
-					<label for="ruleKeyword">Palabra Clave</label>
-					<input type="text" id="ruleKeyword" placeholder="Ejemplo: hola" />
-					<label for="ruleResponses">Respuestas (máximo 7)</label>
-					<textarea
-						id="ruleResponses"
-						rows="4"
-						placeholder="Respuesta 1, Respuesta 2,..."
-					></textarea>
-					<button id="saveNewRuleBtn" class="btn-primary">Guardar Regla</button>
-					<div id="newRuleStatusBox" class="status-box"></div>
-					<div id="rulesListContainer"></div>
-				</div>
+                                <div id="config" class="tab-content">
+                                        <h2>Configurar Respuesta Automática</h2>
+                                        <input type="text" id="rulePostId" placeholder="" readonly />
+                                        <div class="form-group">
+                                                <label for="autoToggle">Activar Automático</label>
+                                                <label class="switch">
+                                                        <input type="checkbox" id="autoToggle" />
+                                                        <span class="slider"></span>
+                                                </label>
+                                        </div>
+                                        <label for="ruleKeyword">Palabra Clave</label>
+                                        <input type="text" id="ruleKeyword" placeholder="Ejemplo: hola" />
+                                        <label for="ruleResponses">Respuestas (máximo 7)</label>
+                                        <textarea
+                                                id="ruleResponses"
+                                                rows="4"
+                                                placeholder="Respuesta 1, Respuesta 2,..."
+                                        ></textarea>
+                                        <button id="saveNewRuleBtn" class="btn-primary">Guardar Regla</button>
+                                        <div id="newRuleStatusBox" class="status-box"></div>
+                                        <div id="rulesListContainer"></div>
+                                </div>
 
 				<div id="historial" class="tab-content">
 					<h2>Historial de comentarios respondidos</h2>

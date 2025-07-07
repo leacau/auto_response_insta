@@ -2,7 +2,7 @@ let currentPage = 1;
 let selectedPostId = null;
 
 document.addEventListener('DOMContentLoaded', function () {
-	loadUserPosts(currentPage);
+        loadUserPosts(currentPage);
 
 	// Paginación
 	document.getElementById('prevPageBtn')?.addEventListener('click', () => {
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			showScreen(previous);
 		});
 
-	document.getElementById('runTestBtn')?.addEventListener('click', () => {
+        document.getElementById('runTestBtn')?.addEventListener('click', () => {
 		const post_id = document.getElementById('testPostId').value.trim();
 		const comment_text = document.getElementById('testComment').value.trim();
 
@@ -83,7 +83,15 @@ document.addEventListener('DOMContentLoaded', function () {
 				document.getElementById(
 					'testResultBox'
 				).innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
-			});
+        });
+
+        document.getElementById('autoToggle')?.addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                if (selectedPostId) {
+                        updateAutoStatus(selectedPostId, enabled);
+                }
+                toggleRuleFields(enabled);
+        });
 	});
 
 	document.querySelectorAll('.tab-btn').forEach((button) => {
@@ -207,6 +215,18 @@ async function loadPostDetails(post_id) {
 			document.getElementById('detailTimestamp').textContent = new Date(
 				post.timestamp
 			).toLocaleString(); */
+                        //asignar ID del post a los campos de regla
+                        document.getElementById('rulePostId').value = post_id;
+
+                        //activar switch y campos
+                        const autoToggle = document.getElementById('autoToggle');
+                        if (autoToggle) {
+                                autoToggle.checked = post.enabled || false;
+                                toggleRuleFields(autoToggle.checked);
+                        }
+
+                        //asignar ID del post a los campos de prueba
+                        document.getElementById('testPostId').value = post_id;
 			//asignar ID del post a los campos de regla
 			document.getElementById('rulePostId').value = post_id;
 
@@ -254,6 +274,30 @@ async function loadPostDetails(post_id) {
 	} catch (err) {
 		responderContainer.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
 	}
+}
+
+function toggleRuleFields(enabled) {
+        const fields = ['ruleKeyword', 'ruleResponses', 'saveNewRuleBtn'];
+        fields.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = !enabled;
+        });
+}
+
+async function updateAutoStatus(post_id, enabled) {
+        try {
+                const res = await fetch('/api/set_auto', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ post_id, enabled }),
+                });
+                const data = await res.json();
+                if (data.status !== 'success') {
+                        alert('Error: ' + data.message);
+                }
+        } catch (err) {
+                alert('Error de conexión: ' + err.message);
+        }
 }
 
 async function saveKeywordForPost(post_id, keyword, responses) {

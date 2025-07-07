@@ -108,14 +108,19 @@ def load_config_for_post(post_id):
         if config is None:
             return {
                 "keywords": {},
-                "default_response": "Gracias por tu comentario 😊"
+                "default_response": "Gracias por tu comentario 😊",
+                "enabled": False,
             }
+
+        if "enabled" not in config:
+            config["enabled"] = False
         return config
     except Exception as e:
         logger.error(f"Error cargando configuración desde Firebase: {str(e)}")
         return {
             "keywords": {},
-            "default_response": "Gracias por tu comentario 😊"
+            "default_response": "Gracias por tu comentario 😊",
+            "enabled": False,
         }
 
 
@@ -233,6 +238,8 @@ def get_post_details(post_id):
             logger.error(f"Error obteniendo detalle: {data['error']['message']}")
             return jsonify({"status": "error", "message": data['error']['message']}), 500
 
+        config = load_config_for_post(post_id)
+
         return jsonify({
             "status": "success",
             "post": {
@@ -241,7 +248,8 @@ def get_post_details(post_id):
                 "like_count": data.get('like_count', 0),
                 "comment_count": data.get('comments_count', 0),
                 "timestamp": data.get('timestamp', ''),
-                "thumbnail": data.get('thumbnail_url', data.get('media_url', '/static/images/placeholder.jpg'))
+                "thumbnail": data.get('thumbnail_url', data.get('media_url', '/static/images/placeholder.jpg')),
+                "enabled": config.get('enabled', False)
             }
         })
 
@@ -347,6 +355,26 @@ def delete_keyword_rule():
         return jsonify({"status": "success", "message": "Palabra clave eliminada"})
     except Exception as e:
         logger.error(f"Error borrando regla: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/set_auto', methods=['POST'])
+def set_auto_reply():
+    """Activar o desactivar respuestas automáticas para un post"""
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        enabled = data.get('enabled')
+        if post_id is None or enabled is None:
+            return jsonify({"status": "error", "message": "Faltan datos"}), 400
+
+        ref = db.reference(f'posts/{post_id}')
+        current = ref.get() or {}
+        ref.update({"enabled": bool(enabled)})
+
+        return jsonify({"status": "success", "enabled": bool(enabled)})
+    except Exception as e:
+        logger.error(f"Error actualizando auto respuesta: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

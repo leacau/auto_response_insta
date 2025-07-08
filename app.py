@@ -75,9 +75,20 @@ def handle_webhook():
                         or (value.get('post') or {}).get('id')
                         or ''
                     )
+
+                    comment_id = (
+                        value.get('comment_id')
+                        or value.get('id')
+                        or (value.get('comment') or {}).get('id')
+                    )
+                    comment_time = value.get('timestamp') or value.get('created_time')
                     from_user = value.get('from', {})  # Aquí se define from_user
 
-                    if not post_id or not comment_text:
+                    if not post_id or not comment_id or not comment_text:
+                        continue
+
+                    # Ignorar si ya respondimos a este comentario
+                    if has_responded(comment_id):
                         continue
 
                     config = load_config_for_post(post_id)
@@ -86,14 +97,23 @@ def handle_webhook():
                         logger.info("Auto respuesta desactivada para %s", post_id)
                         continue
 
+                    enabled_since = config.get("enabled_since")
+                    if enabled_since and comment_time:
+                        try:
+                            ct = datetime.fromisoformat(comment_time.replace('Z','+00:00'))
+                            es = datetime.fromisoformat(enabled_since)
+                            if ct < es:
+                                continue
+                        except Exception:
+                            pass
                     matched = False
 
                     # Buscar coincidencias con palabras clave
                     for keyword, responses in config.get('keywords', {}).items():
                         if keyword.lower() in comment_text:
                             reply_text = random.choice(responses) if isinstance(responses, list) and len(responses) > 0 else responses[0]
-                            send_instagram_comment(post_id, reply_text)
-                            log_activity(comment_text, post_id, reply_text, from_user=from_user, matched=True)
+                            send_comment_reply(comment_id, reply_text)
+                            log_activity(comment_id, comment_text, post_id, reply_text, from_user=from_user, matched=True)
                             matched = True
                             break
 
@@ -101,8 +121,8 @@ def handle_webhook():
                     if not matched:
                         default_response = config.get('default_response', '')
                         if default_response:
-                            send_instagram_comment(post_id, default_response)
-                            log_activity(comment_text, post_id, default_response, from_user=from_user, matched=False)
+                            send_comment_reply(comment_id, default_response)
+                            log_activity(comment_id, comment_text, post_id, default_response, from_user=from_user, matched=False)
 
             return jsonify({"status": "success", "message": "Evento procesado"}), 200
 
@@ -131,10 +151,13 @@ def load_config_for_post(post_id):
                 "keywords": {},
                 "default_response": "Gracias por tu comentario 😊",
                 "enabled": False,
+                "enabled_since": None,
             }
 
     if "enabled" not in config:
         config["enabled"] = False
+    if "enabled_since" not in config:
+        config["enabled_since"] = None
     return config
 
 
@@ -158,9 +181,9 @@ def save_config_for_post(post_id, config):
     return success
 
 
-def send_instagram_comment(media_id, message):
-    """Enviar comentario vía Graph API"""
-    url = f"{GRAPH_URL}/{media_id}/comments"
+def send_comment_reply(comment_id, message):
+    """Responder a un comentario vía Graph API"""
+    url = f"{GRAPH_URL}/{comment_id}/replies"
     payload = {
         "message": message,
         "access_token": ACCESS_TOKEN,
@@ -169,6 +192,10 @@ def send_instagram_comment(media_id, message):
         response = requests.post(url, data=payload, timeout=30)
         data = response.json()
         if "error" in data:
+            logger.error("Error enviando respuesta: %s", data["error"].get("message"))
+        return data
+    except Exception as e:
+        logger.error("Excepción enviando respuesta: %s", e)
             logger.error("Error enviando comentario: %s", data["error"].get("message"))
         return data
     except Exception as e:
@@ -176,7 +203,7 @@ def send_instagram_comment(media_id, message):
         return {"error": str(e)}
 
 
-def log_activity(comment_text, media_id, reply_text, from_user, matched=True):
+def log_activity(comment_id, comment_text, media_id, reply_text, from_user, matched=True):
     """Registrar actividad globalmente"""
     try:
         with open(HISTORY_FILE) as f:
@@ -185,7 +212,8 @@ def log_activity(comment_text, media_id, reply_text, from_user, matched=True):
         main_config = {"responded_comments": {}}
 
     timestamp = datetime.now().isoformat()
-    comment_id = f"{media_id}_{timestamp}"
+    if not comment_id:
+        comment_id = f"{media_id}_{timestamp}"
 
     main_config['responded_comments'][comment_id] = {
         "usuario": from_user.get('username', 'anonimo'),
@@ -197,6 +225,16 @@ def log_activity(comment_text, media_id, reply_text, from_user, matched=True):
 
     with open(HISTORY_FILE, 'w') as f:
         json.dump(main_config, f, indent=2)
+
+
+def has_responded(comment_id):
+    """Verifica si ya se respondió a un comentario"""
+    try:
+        with open(HISTORY_FILE) as f:
+            main_config = json.load(f)
+        return comment_id in main_config.get('responded_comments', {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        return False
 
 
 @app.route('/api/get_posts', methods=['GET'])
@@ -397,6 +435,14 @@ def set_auto_reply():
         if post_id is None or enabled is None:
             return jsonify({"status": "error", "message": "Faltan datos"}), 400
         success = False
+        timestamp = datetime.utcnow().isoformat()
+        try:
+            ref = db.reference(f'posts/{post_id}')
+            current = ref.get() or {}
+            update = {"enabled": bool(enabled)}
+            if enabled:
+                update["enabled_since"] = timestamp
+            ref.update(update)
         try:
             ref = db.reference(f'posts/{post_id}')
             current = ref.get() or {}
@@ -410,6 +456,8 @@ def set_auto_reply():
                 path = get_config_path(post_id)
                 config = load_config_for_post(post_id)
                 config["enabled"] = bool(enabled)
+                if enabled:
+                    config["enabled_since"] = timestamp
                 with open(path, 'w') as f:
                     json.dump(config, f, indent=2)
                 success = True
@@ -490,7 +538,7 @@ def process_comments_manually():
         for keyword, responses in config.get('keywords', {}).items():
             if keyword.lower() in comment_text:
                 reply_text = random.choice(responses) if isinstance(responses, list) and len(responses) > 0 else responses[0]
-                log_activity(comment_text, post_id, reply_text, {"username": "test_user"}, matched=True)
+                log_activity(None, comment_text, post_id, reply_text, {"username": "test_user"}, matched=True)
                 matched = True
                 break
 
@@ -499,7 +547,7 @@ def process_comments_manually():
             default_response = config.get('default_response', '')
             if default_response:
                 reply_text = default_response
-                log_activity(comment_text, post_id, reply_text, {"username": "test_user"}, matched=False)
+                log_activity(None, comment_text, post_id, reply_text, {"username": "test_user"}, matched=False)
 
         return jsonify({
             "status": "success",

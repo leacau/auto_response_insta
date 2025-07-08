@@ -282,21 +282,46 @@ async function loadAllRules(post_id = null) {
       
       rules.forEach((rule) => {
         if (!post_id || rule.post_id === post_id) {
-          // Verificación segura de rule.keywords
           if (rule.keywords && typeof rule.keywords === "object") {
             Object.entries(rule.keywords).forEach(([key, responses]) => {
               const ruleDiv = document.createElement("div");
               ruleDiv.className = "keyword-rule";
               ruleDiv.innerHTML = `
-                <strong>${key}:</strong>
+                <div class="keyword-header">
+                  <strong>${key}</strong>
+                  <button class="delete-rule-btn" data-post="${rule.post_id}" data-key="${key}"><i class="fas fa-trash"></i></button>
+                </div>
                 <ul>
-                  ${responses.map((resp) => `<li>"${resp}"</li>`).join("")}
+                  ${responses.map((resp) => `<li>${resp}</li>`).join("")}
                 </ul>
               `;
               rulesContainer.appendChild(ruleDiv);
             });
           }
         }
+      });
+
+      document.querySelectorAll(".delete-rule-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const p = btn.dataset.post;
+          const k = btn.dataset.key;
+          if (!confirm(`Eliminar la palabra "${k}"?`)) return;
+          try {
+            const res = await fetch("/api/delete_rule", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ post_id: p, keyword: k }),
+            });
+            const r = await res.json();
+            if (r.status === "success") {
+              loadAllRules(post_id);
+            } else {
+              alert("Error: " + r.message);
+            }
+          } catch (e) {
+            alert("Error: " + e.message);
+          }
+        });
       });
     } else {
       rulesContainer.innerHTML = `<p class="error">Error: ${data.message}</p>`;

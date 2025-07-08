@@ -325,9 +325,8 @@ def add_new_keyword_rule():
         if not post_id or not keyword or not responses:
             return jsonify({"status": "error", "message": "Faltan datos"}), 400
 
-        # Cargar configuración actual desde Firebase
-        ref = db.reference(f'posts/{post_id}')
-        config = ref.get() or {"keywords": {}, "default_response": "Gracias por tu comentario"}
+        # Cargar configuración actual (Firebase o local)
+        config = load_config_for_post(post_id)
 
         # Procesar respuestas
         if isinstance(responses, list):
@@ -341,13 +340,10 @@ def add_new_keyword_rule():
             return jsonify({"status": "error", "message": "Máximo 7 respuestas por palabra clave"}), 400
 
         # Actualizar configuración
-        config["keywords"][keyword] = response_list
-        ref.update({
-            "keywords": config["keywords"],
-            "default_response": config.get("default_response", "Gracias por tu comentario")
-        })
-
-        return jsonify({"status": "success", "message": "Regla agregada correctamente"})
+        config.setdefault("keywords", {})[keyword] = response_list
+        if save_config_for_post(post_id, config):
+            return jsonify({"status": "success", "message": "Regla agregada correctamente"})
+        return jsonify({"status": "error", "message": "No se pudo guardar"}), 500
     except Exception as e:
         logger.error(f"Error al agregar regla: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -361,10 +357,13 @@ def delete_keyword_rule():
         if not post_id or not keyword:
             return jsonify({"status": "error", "message": "Datos incompletos"}), 400
 
-        ref = db.reference(f'posts/{post_id}/keywords/{keyword}')
-        ref.delete()
-
-        return jsonify({"status": "success", "message": "Palabra clave eliminada"})
+        config = load_config_for_post(post_id)
+        if keyword in config.get("keywords", {}):
+            del config["keywords"][keyword]
+            if save_config_for_post(post_id, config):
+                return jsonify({"status": "success", "message": "Palabra clave eliminada"})
+            return jsonify({"status": "error", "message": "No se pudo guardar"}), 500
+        return jsonify({"status": "error", "message": "Palabra clave no encontrada"}), 404
     except Exception as e:
         logger.error(f"Error borrando regla: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500

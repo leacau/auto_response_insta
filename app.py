@@ -68,7 +68,13 @@ def handle_webhook():
                 for change in entry.get('changes', []):
                     value = change.get('value', {})
                     comment_text = value.get('text', '').lower()
-                    post_id = value.get('media_id', '') or value.get('post_id', '')
+                    post_id = (
+                        value.get('media_id')
+                        or value.get('post_id')
+                        or (value.get('media') or {}).get('id')
+                        or (value.get('post') or {}).get('id')
+                        or ''
+                    )
                     from_user = value.get('from', {})  # Aquí se define from_user
 
                     if not post_id or not comment_text:

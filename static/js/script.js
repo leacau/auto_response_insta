@@ -154,6 +154,7 @@ async function loadUserPosts(page = 1) {
 // Cargar detalles de una publicación
 async function loadPostDetails(post_id) {
   const responderContainer = document.getElementById("responder");
+  showScreen("screen-details");
   responderContainer.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Cargando detalles del post...</p>';
   
   try {

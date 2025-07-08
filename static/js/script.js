@@ -2,7 +2,7 @@ let currentPage = 1;
 let selectedPostId = null;
 
 document.addEventListener('DOMContentLoaded', function () {
-	loadUserPosts(currentPage);
+        loadUserPosts(currentPage);
 
 	// Paginación
 	document.getElementById('prevPageBtn')?.addEventListener('click', () => {
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', function () {
 			showScreen(previous);
 		});
 
-	document.getElementById('runTestBtn')?.addEventListener('click', () => {
+        document.getElementById('runTestBtn')?.addEventListener('click', () => {
 		const post_id = document.getElementById('testPostId').value.trim();
 		const comment_text = document.getElementById('testComment').value.trim();
 
@@ -83,8 +83,10 @@ document.addEventListener('DOMContentLoaded', function () {
 				document.getElementById(
 					'testResultBox'
 				).innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
-			});
-	});
+        });
+
+        initializeAutoToggle();
+        });
 
 	document.querySelectorAll('.tab-btn').forEach((button) => {
 		button.addEventListener('click', () => {
@@ -207,42 +209,44 @@ async function loadPostDetails(post_id) {
 			document.getElementById('detailTimestamp').textContent = new Date(
 				post.timestamp
 			).toLocaleString(); */
-			//asignar ID del post a los campos de regla
-			document.getElementById('rulePostId').value = post_id;
+                        //asignar ID del post a los campos de regla
+                        document.getElementById('rulePostId').value = post_id;
 
-			//asignr ID del post a los campos de prueba
-			document.getElementById('testPostId').value = post_id;
+                        //activar switch y campos
+                        const autoToggle = document.getElementById('autoToggle');
+                        if (autoToggle) {
+                                autoToggle.checked = post.enabled || false;
+                                toggleRuleFields(autoToggle.checked);
+                        }
 
-			// Cargar comentarios solo si no están cargados
-			const commentsList = document.getElementById('commentsList');
-			if (!document.getElementById('commentsListLoaded')) {
-				const commentResponse = await fetch(`/api/comments/${post_id}`);
-				const commentData = await commentResponse.json();
+                        //asignar ID del post a los campos de prueba
+                        document.getElementById('testPostId').value = post_id;
 
-				if (commentData.status === 'success') {
-					commentsList.innerHTML = '';
-					const comments = commentData.comments || [];
-					if (comments.length === 0) {
-						commentsList.innerHTML = '<p>No hay comentarios aún.</p>';
-					} else {
-						comments.forEach((comment) => {
-							const commentDiv = document.createElement('div');
-							commentDiv.className = 'comment-item';
-							commentDiv.innerHTML = `
-                                <strong>${comment.username}</strong>: "${
-								comment.text
-							}"
-                                <small>${new Date(
-																	comment.timestamp * 1000
-																).toLocaleString()}</small>
+                        // Cargar comentarios del post
+                        const commentsList = document.getElementById('commentsList');
+                        const commentResponse = await fetch(`/api/comments/${post_id}`);
+                        const commentData = await commentResponse.json();
+
+                        if (commentData.status === 'success') {
+                                commentsList.innerHTML = '';
+                                const comments = commentData.comments || [];
+                                document.getElementById('detailComments').textContent = commentData.total;
+                                if (comments.length === 0) {
+                                        commentsList.innerHTML = '<p>No hay comentarios aún.</p>';
+                                } else {
+                                        comments.forEach((comment) => {
+                                                const commentDiv = document.createElement('div');
+                                                commentDiv.className = 'comment-item';
+                                                commentDiv.innerHTML = `
+                                <strong>${comment.username}</strong>: "${comment.text}"
+                                <small>${new Date(comment.timestamp).toLocaleString()}</small>
                             `;
-							commentsList.appendChild(commentDiv);
-						});
-					}
-				} else {
-					commentsList.innerHTML = `<p class="error">Error: ${commentData.message}</p>`;
-				}
-			}
+                                                commentsList.appendChild(commentDiv);
+                                        });
+                                }
+                        } else {
+                                commentsList.innerHTML = `<p class="error">Error: ${commentData.message}</p>`;
+                        }
 
 			// Mostrar pestaña activa
 			const currentTab = document.querySelector('.tab-btn.active').dataset.tab;
@@ -259,6 +263,45 @@ async function loadPostDetails(post_id) {
 	} catch (err) {
 		responderContainer.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
 	}
+}
+
+function toggleRuleFields(enabled) {
+        const container = document.getElementById('config');
+        const ids = ['ruleKeyword', 'ruleResponses', 'saveNewRuleBtn'];
+        ids.forEach((id) => {
+                const el = container.querySelector('#' + id);
+                if (el) {
+                        el.disabled = !enabled;
+                        el.classList.toggle('disabled', !enabled);
+                }
+        });
+}
+
+function initializeAutoToggle() {
+        const toggle = document.getElementById('autoToggle');
+        if (!toggle) return;
+        toggle.addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                if (selectedPostId) updateAutoStatus(selectedPostId, enabled);
+                toggleRuleFields(enabled);
+        });
+        toggleRuleFields(toggle.checked);
+}
+
+async function updateAutoStatus(post_id, enabled) {
+        try {
+                const res = await fetch('/api/set_auto', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ post_id, enabled }),
+                });
+                const data = await res.json();
+                if (data.status !== 'success') {
+                        alert('Error: ' + data.message);
+                }
+        } catch (err) {
+                alert('Error de conexión: ' + err.message);
+        }
 }
 
 async function saveKeywordForPost(post_id, keyword, responses) {

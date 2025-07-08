@@ -61,12 +61,50 @@ document.addEventListener("DOMContentLoaded", function () {
       document.querySelectorAll(".tab-content").forEach((content) => content.classList.remove("active"));
       
       // Usar dataset para obtener el tab (corrección principal)
-      const tab = button.dataset.tab; 
+      const tab = button.dataset.tab;
       button.classList.add("active");
       document.getElementById(tab).classList.add("active");
     });
   });
+
+  // Al iniciar, ocultar/mostrar campos según estado del toggle
+  toggleRuleFields(document.getElementById("autoToggle")?.checked);
 });
+
+function showScreen(screenId) {
+  document.querySelectorAll(".screen").forEach((screen) => screen.classList.remove("active"));
+  const target = document.getElementById(screenId);
+  if (target) {
+    target.classList.add("active");
+  }
+}
+
+function toggleRuleFields(enabled) {
+  ["ruleKeyword", "ruleResponses", "saveNewRuleBtn"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !enabled;
+  });
+}
+
+function initializeAutoToggle() {
+  const toggle = document.getElementById("autoToggle");
+  if (!toggle) return;
+  toggle.addEventListener("change", async () => {
+    const post_id = document.getElementById("rulePostId").value.trim();
+    const enabled = toggle.checked;
+    toggleRuleFields(enabled);
+    if (!post_id) return;
+    try {
+      await fetch("/api/set_auto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ post_id, enabled }),
+      });
+    } catch (e) {
+      console.error("Error actualizando auto", e);
+    }
+  });
+}
 
 // Cargar publicaciones del usuario
 async function loadUserPosts(page = 1) {
@@ -124,6 +162,7 @@ async function loadPostDetails(post_id) {
     
     if (data.status === "success") {
       const post = data.post;
+      showScreen("screen-details");
       responderContainer.innerHTML = `
         <h2>Detalles del Post</h2>
         <img id="detailThumbnail" src="${post.thumbnail || "/static/images/placeholder.jpg"}" width="100%" height="200" onerror="this.src='/static/images/placeholder.jpg'" />
@@ -173,6 +212,9 @@ async function loadPostDetails(post_id) {
           });
         }
       }
+
+      await loadAllRules(post_id);
+      await loadAllRulesForTest(post_id);
     }
   } catch (err) {
     responderContainer.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
@@ -240,21 +282,46 @@ async function loadAllRules(post_id = null) {
       
       rules.forEach((rule) => {
         if (!post_id || rule.post_id === post_id) {
-          // Verificación segura de rule.keywords
           if (rule.keywords && typeof rule.keywords === "object") {
             Object.entries(rule.keywords).forEach(([key, responses]) => {
               const ruleDiv = document.createElement("div");
               ruleDiv.className = "keyword-rule";
               ruleDiv.innerHTML = `
-                <strong>${key}:</strong>
+                <div class="keyword-header">
+                  <strong>${key}</strong>
+                  <button class="delete-rule-btn" data-post="${rule.post_id}" data-key="${key}"><i class="fas fa-trash"></i></button>
+                </div>
                 <ul>
-                  ${responses.map((resp) => `<li>"${resp}"</li>`).join("")}
+                  ${responses.map((resp) => `<li>${resp}</li>`).join("")}
                 </ul>
               `;
               rulesContainer.appendChild(ruleDiv);
             });
           }
         }
+      });
+
+      document.querySelectorAll(".delete-rule-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const p = btn.dataset.post;
+          const k = btn.dataset.key;
+          if (!confirm(`Eliminar la palabra "${k}"?`)) return;
+          try {
+            const res = await fetch("/api/delete_rule", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ post_id: p, keyword: k }),
+            });
+            const r = await res.json();
+            if (r.status === "success") {
+              loadAllRules(post_id);
+            } else {
+              alert("Error: " + r.message);
+            }
+          } catch (e) {
+            alert("Error: " + e.message);
+          }
+        });
       });
     } else {
       rulesContainer.innerHTML = `<p class="error">Error: ${data.message}</p>`;

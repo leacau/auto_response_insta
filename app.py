@@ -82,7 +82,7 @@ def handle_webhook():
                     )
                     comment_time = value.get('timestamp') or value.get('created_time')
                     from_user = value.get('from', {})  # Aquí se define from_user
-
+                    
                     if not post_id or not comment_id or not comment_text:
                         continue
 
@@ -105,6 +105,7 @@ def handle_webhook():
                                 continue
                         except Exception:
                             pass
+
                     matched = False
 
                     # Buscar coincidencias con palabras clave
@@ -169,6 +170,7 @@ def save_config_for_post(post_id, config):
         success = True
     except Exception as e:
         logger.error(f"Error guardando en Firebase: {str(e)}")
+
     if not success:
         try:
             with open(get_config_path(post_id), 'w') as f:
@@ -177,6 +179,7 @@ def save_config_for_post(post_id, config):
         except Exception as ex:
             logger.error(f"Error guardando configuración local: {ex}")
     return success
+
 def send_comment_reply(comment_id, message):
     """Responder a un comentario vía Graph API"""
     url = f"{GRAPH_URL}/{comment_id}/replies"

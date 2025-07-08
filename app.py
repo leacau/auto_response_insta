@@ -75,7 +75,6 @@ def handle_webhook():
                         or (value.get('post') or {}).get('id')
                         or ''
                     )
-
                     comment_id = (
                         value.get('comment_id')
                         or value.get('id')
@@ -170,7 +169,6 @@ def save_config_for_post(post_id, config):
         success = True
     except Exception as e:
         logger.error(f"Error guardando en Firebase: {str(e)}")
-
     if not success:
         try:
             with open(get_config_path(post_id), 'w') as f:
@@ -179,8 +177,6 @@ def save_config_for_post(post_id, config):
         except Exception as ex:
             logger.error(f"Error guardando configuración local: {ex}")
     return success
-
-
 def send_comment_reply(comment_id, message):
     """Responder a un comentario vía Graph API"""
     url = f"{GRAPH_URL}/{comment_id}/replies"
@@ -196,10 +192,6 @@ def send_comment_reply(comment_id, message):
         return data
     except Exception as e:
         logger.error("Excepción enviando respuesta: %s", e)
-            logger.error("Error enviando comentario: %s", data["error"].get("message"))
-        return data
-    except Exception as e:
-        logger.error("Excepción enviando comentario: %s", e)
         return {"error": str(e)}
 
 
@@ -443,10 +435,6 @@ def set_auto_reply():
             if enabled:
                 update["enabled_since"] = timestamp
             ref.update(update)
-        try:
-            ref = db.reference(f'posts/{post_id}')
-            current = ref.get() or {}
-            ref.update({"enabled": bool(enabled)})
             success = True
         except Exception as e:
             logger.error(f"Error actualizando en Firebase: {str(e)}")

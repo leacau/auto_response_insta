@@ -75,6 +75,11 @@ def handle_webhook():
                         continue
 
                     config = load_config_for_post(post_id)
+
+                    if not config.get("enabled", False):
+                        logger.info("Auto respuesta desactivada para %s", post_id)
+                        continue
+
                     matched = False
 
                     # Buscar coincidencias con palabras clave
@@ -151,11 +156,18 @@ def send_instagram_comment(media_id, message):
     """Enviar comentario vía Graph API"""
     url = f"{GRAPH_URL}/{media_id}/comments"
     payload = {
-        'message': message,
-        'access_token': ACCESS_TOKEN
+        "message": message,
+        "access_token": ACCESS_TOKEN,
     }
-    response = requests.post(url, data=payload, timeout=30)
-    return response.json()
+    try:
+        response = requests.post(url, data=payload, timeout=30)
+        data = response.json()
+        if "error" in data:
+            logger.error("Error enviando comentario: %s", data["error"].get("message"))
+        return data
+    except Exception as e:
+        logger.error("Excepción enviando comentario: %s", e)
+        return {"error": str(e)}
 
 
 def log_activity(comment_text, media_id, reply_text, from_user, matched=True):

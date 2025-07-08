@@ -61,7 +61,7 @@ def handle_webhook():
 
     elif request.method == 'POST':
         data = request.json
-        logger.info("Evento recibido:", data)
+        logger.info("Evento recibido: %s", data)
 
         try:
             for entry in data.get('entry', []):
@@ -108,14 +108,19 @@ def load_config_for_post(post_id):
         if config is None:
             return {
                 "keywords": {},
-                "default_response": "Gracias por tu comentario 😊"
+                "default_response": "Gracias por tu comentario 😊",
+                "enabled": False,
             }
+
+        if "enabled" not in config:
+            config["enabled"] = False
         return config
     except Exception as e:
         logger.error(f"Error cargando configuración desde Firebase: {str(e)}")
         return {
             "keywords": {},
-            "default_response": "Gracias por tu comentario 😊"
+            "default_response": "Gracias por tu comentario 😊",
+            "enabled": False,
         }
 
 
@@ -168,24 +173,29 @@ def log_activity(comment_text, media_id, reply_text, from_user, matched=True):
 def get_user_posts():
     try:
         page = int(request.args.get('page', 1))
-        per_page = 5
+        per_page = 8
         start_idx = (page - 1) * per_page
 
         url = f"{GRAPH_URL}/{IG_USER_ID}/media"
         params = {
             'access_token': ACCESS_TOKEN,
-            'limit': 20,
+            'limit': 50,
             'fields': 'id,caption,like_count,comments_count,timestamp,thumbnail_url,media_url'
         }
 
-        response = requests.get(url, params=params, timeout=30)
-        data = response.json()
+        posts = []
+        while url:
+            response = requests.get(url, params=params if params else {}, timeout=30)
+            data = response.json()
 
-        if 'error' in data:
-            logger.error(f"Error obteniendo posts: {data['error']['message']}")
-            return jsonify({"status": "error", "message": data['error']['message']}), 500
+            if 'error' in data:
+                logger.error(f"Error obteniendo posts: {data['error']['message']}")
+                return jsonify({"status": "error", "message": data['error']['message']}), 500
 
-        posts = data.get('data', [])
+            posts.extend(data.get('data', []))
+            url = data.get('paging', {}).get('next')
+            params = None
+
         total = len(posts)
         paginated = posts[start_idx:start_idx + per_page]
 
@@ -228,6 +238,8 @@ def get_post_details(post_id):
             logger.error(f"Error obteniendo detalle: {data['error']['message']}")
             return jsonify({"status": "error", "message": data['error']['message']}), 500
 
+        config = load_config_for_post(post_id)
+
         return jsonify({
             "status": "success",
             "post": {
@@ -236,7 +248,8 @@ def get_post_details(post_id):
                 "like_count": data.get('like_count', 0),
                 "comment_count": data.get('comments_count', 0),
                 "timestamp": data.get('timestamp', ''),
-                "thumbnail": data.get('thumbnail_url', data.get('media_url', '/static/images/placeholder.jpg'))
+                "thumbnail": data.get('thumbnail_url', data.get('media_url', '/static/images/placeholder.jpg')),
+                "enabled": config.get('enabled', False)
             }
         })
 
@@ -255,26 +268,33 @@ def get_post_comments(post_id):
             'fields': 'text,from{username},timestamp'
         }
 
-        response = requests.get(url, params=params, timeout=30)
-        data = response.json()
-
-        if 'error' in data:
-            logger.error(f"Error obteniendo comentarios: {data['error']['message']}")
-            return jsonify({"status": "error", "message": data['error']['message']}), 500
-
         comments = []
-        for c in data.get('data', []):
-            user = c.get('from', {}) or {}
-            comments.append({
-                "id": c.get('id', ''),
-                "text": c.get('text', 'Comentario no disponible'),
-                "username": user.get('username', 'usuario_anonimo'),
-                "timestamp": c.get('timestamp', '')
-            })
+        while url:
+            response = requests.get(url, params=params if params else {}, timeout=30)
+            data = response.json()
+
+            if 'error' in data:
+                logger.error(f"Error obteniendo comentarios: {data['error']['message']}")
+                return jsonify({"status": "error", "message": data['error']['message']}), 500
+
+            for c in data.get('data', []):
+                user = c.get('from', {}) or {}
+                comments.append({
+                    "id": c.get('id', ''),
+                    "text": c.get('text', 'Comentario no disponible'),
+                    "username": user.get('username', 'usuario_anonimo'),
+                    "timestamp": c.get('timestamp', '')
+                })
+
+            url = data.get('paging', {}).get('next')
+            params = None
+
+        total = len(comments)
 
         return jsonify({
             "status": "success",
-            "comments": comments
+            "comments": comments,
+            "total": total
         })
 
     except Exception as e:
@@ -335,6 +355,26 @@ def delete_keyword_rule():
         return jsonify({"status": "success", "message": "Palabra clave eliminada"})
     except Exception as e:
         logger.error(f"Error borrando regla: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/set_auto', methods=['POST'])
+def set_auto_reply():
+    """Activar o desactivar respuestas automáticas para un post"""
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        enabled = data.get('enabled')
+        if post_id is None or enabled is None:
+            return jsonify({"status": "error", "message": "Faltan datos"}), 400
+
+        ref = db.reference(f'posts/{post_id}')
+        current = ref.get() or {}
+        ref.update({"enabled": bool(enabled)})
+
+        return jsonify({"status": "success", "enabled": bool(enabled)})
+    except Exception as e:
+        logger.error(f"Error actualizando auto respuesta: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

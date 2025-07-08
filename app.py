@@ -82,14 +82,7 @@ def handle_webhook():
                     )
                     comment_time = value.get('timestamp') or value.get('created_time')
                     from_user = value.get('from', {})  # Aquí se define from_user
-
-                    # Evitar responder a nuestros propios comentarios
-                    try:
-                        if str(from_user.get('id')) == str(IG_USER_ID):
-                            continue
-                    except Exception:
-                        pass
-
+                    
                     if not post_id or not comment_id or not comment_text:
                         continue
 
@@ -186,7 +179,6 @@ def save_config_for_post(post_id, config):
         except Exception as ex:
             logger.error(f"Error guardando configuración local: {ex}")
     return success
-
 
 def send_comment_reply(comment_id, message):
     """Responder a un comentario vía Graph API"""

@@ -85,8 +85,18 @@ document.addEventListener('DOMContentLoaded', function () {
 				).innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
         });
 
+
         initializeAutoToggle();
         });
+
+        document.getElementById('autoToggle')?.addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                if (selectedPostId) {
+                        updateAutoStatus(selectedPostId, enabled);
+                }
+                toggleRuleFields(enabled);
+        });
+	});
 
 	document.querySelectorAll('.tab-btn').forEach((button) => {
 		button.addEventListener('click', () => {
@@ -221,6 +231,11 @@ async function loadPostDetails(post_id) {
 
                         //asignar ID del post a los campos de prueba
                         document.getElementById('testPostId').value = post_id;
+			//asignar ID del post a los campos de regla
+			document.getElementById('rulePostId').value = post_id;
+
+			//asignr ID del post a los campos de prueba
+			document.getElementById('testPostId').value = post_id;
 
                         // Cargar comentarios del post
                         const commentsList = document.getElementById('commentsList');
@@ -286,6 +301,11 @@ function initializeAutoToggle() {
                 toggleRuleFields(enabled);
         });
         toggleRuleFields(toggle.checked);
+        const fields = ['ruleKeyword', 'ruleResponses', 'saveNewRuleBtn'];
+        fields.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = !enabled;
+        });
 }
 
 async function updateAutoStatus(post_id, enabled) {

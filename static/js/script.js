@@ -93,6 +93,146 @@ function showScreen(screenId) {
       document.getElementById(tab).classList.add("active");
     }
   }
+document.addEventListener('DOMContentLoaded', function () {
+        loadUserPosts(currentPage);
+
+	// Paginación
+	document.getElementById('prevPageBtn')?.addEventListener('click', () => {
+		if (currentPage > 1) {
+			currentPage--;
+			loadUserPosts(currentPage);
+		}
+	});
+
+	document.getElementById('nextPageBtn')?.addEventListener('click', () => {
+		currentPage++;
+		loadUserPosts(currentPage);
+	});
+
+	// Botón "Volver"
+	document.getElementById('backToHomeBtn')?.addEventListener('click', () => {
+		showScreen('screen-home');
+	});
+
+	// Guardar nueva palabra clave
+	document.getElementById('saveNewRuleBtn')?.addEventListener('click', () => {
+		const post_id = document.getElementById('rulePostId').value.trim();
+		const keyword = document.getElementById('ruleKeyword').value.trim();
+		const responses = document.getElementById('ruleResponses').value.trim();
+
+		if (!keyword || !responses) {
+			alert('Por favor completa ambos campos');
+			return;
+		}
+
+		saveKeywordForPost(post_id, keyword, responses);
+	});
+
+	// Mostrar política de privacidad
+	document.getElementById('privacyBtn')?.addEventListener('click', () => {
+		showScreen('screen-privacy');
+	});
+
+	document
+		.getElementById('backFromPrivacyBtn')
+		?.addEventListener('click', () => {
+			const previous =
+				document.querySelector('.screen.active').id === 'screen-details'
+					? 'screen-details'
+					: 'screen-home';
+			showScreen(previous);
+
+		});
+        initializeAutoToggle();
+
+        document.getElementById('runTestBtn')?.addEventListener('click', () => {
+		const post_id = document.getElementById('testPostId').value.trim();
+		const comment_text = document.getElementById('testComment').value.trim();
+
+		if (!post_id || !comment_text) {
+			alert('Completa los campos de prueba.');
+			return;
+		}
+
+		fetch('/api/process_comments', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ post_id, comment_text }),
+		})
+			.then((res) => res.json())
+			.then((result) => {
+				const box = document.getElementById('testResultBox');
+				if (result.status === 'success') {
+					box.innerHTML = `
+                <p class="${result.matched ? 'success' : 'info'}">
+                    <strong>Resultado:</strong><br/>
+                    Coincidió: ${result.matched ? '✅ Sí' : '❌ No'}<br/>
+                    Respuesta: "${result.response}"
+                </p>`;
+				} else {
+					box.innerHTML = `<p class="error">Error: ${result.message}</p>`;
+				}
+			})
+			.catch((err) => {
+				document.getElementById(
+					'testResultBox'
+				).innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
+        });
+
+
+        initializeAutoToggle();
+        });
+
+        document.getElementById('autoToggle')?.addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                if (selectedPostId) {
+                        updateAutoStatus(selectedPostId, enabled);
+                }
+                toggleRuleFields(enabled);
+        });
+	});
+
+	document.querySelectorAll('.tab-btn').forEach((button) => {
+		button.addEventListener('click', () => {
+			const tab = button.getAttribute('data-tab');
+			console.log(tab);
+
+			// Quitar clase 'active' de todos los botones y pestañas
+			document
+				.querySelectorAll('.tab-btn')
+				.forEach((btn) => btn.classList.remove('active'));
+			document
+				.querySelectorAll('.tab-content')
+				.forEach((content) => content.classList.remove('active'));
+
+			// Añadir 'active' al botón seleccionado y su contenido correspondiente
+			button.classList.add('active');
+			document.getElementById(tab).classList.add('active');
+		});
+	});
+});
+
+function showScreen(screenId) {
+        // Cambiar pantalla visible
+        document.querySelectorAll('.screen').forEach((s) => {
+                s.classList.remove('active');
+        });
+        document.getElementById(screenId).classList.add('active');
+
+        // Si se muestra la pantalla de detalles, asegurar que una pestaña esté activa
+        if (screenId === 'screen-details') {
+                const activeBtn =
+                        document.querySelector('.tab-btn.active') ||
+                        document.querySelector('.tab-btn');
+                const tab = activeBtn ? activeBtn.dataset.tab : null;
+
+                if (tab) {
+                        document.querySelectorAll('.tab-content').forEach((c) =>
+                                c.classList.remove('active')
+                        );
+                        document.getElementById(tab).classList.add('active');
+                }
+        }
 }
 
 async function loadUserPosts(page = 1) {
@@ -274,6 +414,110 @@ async function updateAutoStatus(post_id, enabled) {
   } catch (err) {
     alert("Error de conexión: " + err.message);
   }
+                        //asignar ID del post a los campos de regla
+                        document.getElementById('rulePostId').value = post_id;
+
+                        //activar switch y campos
+                        const autoToggle = document.getElementById('autoToggle');
+                        if (autoToggle) {
+                                autoToggle.checked = post.enabled || false;
+                                toggleRuleFields(autoToggle.checked);
+                        }
+
+                        //asignar ID del post a los campos de prueba
+                        document.getElementById('testPostId').value = post_id;
+			//asignar ID del post a los campos de regla
+			document.getElementById('rulePostId').value = post_id;
+
+			//asignr ID del post a los campos de prueba
+			document.getElementById('testPostId').value = post_id;
+
+                        // Cargar comentarios del post
+                        const commentsList = document.getElementById('commentsList');
+                        const commentResponse = await fetch(`/api/comments/${post_id}`);
+                        const commentData = await commentResponse.json();
+
+                        if (commentData.status === 'success') {
+                                commentsList.innerHTML = '';
+                                const comments = commentData.comments || [];
+                                document.getElementById('detailComments').textContent = commentData.total;
+                                if (comments.length === 0) {
+                                        commentsList.innerHTML = '<p>No hay comentarios aún.</p>';
+                                } else {
+                                        comments.forEach((comment) => {
+                                                const commentDiv = document.createElement('div');
+                                                commentDiv.className = 'comment-item';
+                                                commentDiv.innerHTML = `
+                                <strong>${comment.username}</strong>: "${comment.text}"
+                                <small>${new Date(comment.timestamp).toLocaleString()}</small>
+                            `;
+                                                commentsList.appendChild(commentDiv);
+                                        });
+                                }
+                        } else {
+                                commentsList.innerHTML = `<p class="error">Error: ${commentData.message}</p>`;
+                        }
+
+			// Mostrar pestaña activa
+			const currentTab = document.querySelector('.tab-btn.active').dataset.tab;
+			document
+				.querySelectorAll('.tab-content')
+				.forEach((c) => c.classList.remove('active'));
+			document.getElementById(currentTab).classList.add('active');
+
+			// Mostrar pantalla de detalles
+			showScreen('screen-details');
+		} else {
+			responderContainer.innerHTML = `<p class="error">No se pudo cargar el post.</p>`;
+		}
+	} catch (err) {
+		responderContainer.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
+	}
+}
+
+function toggleRuleFields(enabled) {
+        const container = document.getElementById('config');
+        const ids = ['ruleKeyword', 'ruleResponses', 'saveNewRuleBtn'];
+        ids.forEach((id) => {
+                const el = container.querySelector('#' + id);
+                if (el) {
+                        el.disabled = !enabled;
+                        el.classList.toggle('disabled', !enabled);
+                }
+        });
+}
+
+function initializeAutoToggle() {
+        const toggle = document.getElementById('autoToggle');
+        if (!toggle) return;
+        toggle.addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                if (selectedPostId) updateAutoStatus(selectedPostId, enabled);
+                toggleRuleFields(enabled);
+        });
+        toggleRuleFields(toggle.checked);
+
+        const fields = ['ruleKeyword', 'ruleResponses', 'saveNewRuleBtn'];
+        fields.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = !enabled;
+        });
+}
+
+async function updateAutoStatus(post_id, enabled) {
+        try {
+                const res = await fetch('/api/set_auto', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ post_id, enabled }),
+                });
+                const data = await res.json();
+                if (data.status !== 'success') {
+                        alert('Error: ' + data.message);
+                }
+        } catch (err) {
+                alert('Error de conexión: ' + err.message);
+        }
 }
 
 async function saveKeywordForPost(post_id, keyword, responses) {
@@ -340,6 +584,29 @@ async function loadAllRules(post_id = null) {
             const ruleDiv = document.createElement("div");
             ruleDiv.className = "keyword-rule";
             ruleDiv.innerHTML = `
+	const rulesContainer = document.getElementById('configRulesListContainer');
+	rulesContainer.innerHTML =
+		'<p><i class="fas fa-spinner fa-spin"></i> Cargando reglas...</p>';
+
+	try {
+		const response = await fetch('/api/list_rules');
+		const data = await response.json();
+
+		if (data.status === 'success') {
+			rulesContainer.innerHTML = '';
+			const rules = data.rules || [];
+
+			if (rules.length === 0) {
+				rulesContainer.innerHTML = '<p>No hay reglas definidas.</p>';
+				return;
+			}
+
+			rules.forEach((rule) => {
+				if (rule.post_id === post_id) {
+					Object.entries(rule.keywords).forEach(([key, responses]) => {
+						const ruleDiv = document.createElement('div');
+						ruleDiv.className = 'keyword-rule';
+						ruleDiv.innerHTML = `
                             <strong>${key}:</strong>
                             <ul>
                                 ${responses

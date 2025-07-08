@@ -6,6 +6,15 @@ let selectedPostId = null;
 document.addEventListener("DOMContentLoaded", function () {
   loadUserPosts(currentPage);
 
+  const selector = document.getElementById("postSelectorContainer");
+  selector?.addEventListener("click", (e) => {
+    const item = e.target.closest(".post-item");
+    if (item) {
+      selectedPostId = item.dataset.id;
+      loadPostDetails(item.dataset.id);
+    }
+  });
+
   // Paginación
   document.getElementById("prevPageBtn")?.addEventListener("click", () => {
     if (currentPage > 1) {
@@ -133,10 +142,6 @@ async function loadUserPosts(page = 1) {
           <small>${post.caption}</small>
         `;
         
-        div.addEventListener("click", () => {
-          selectedPostId = post.id;
-          loadPostDetails(post.id);
-        });
         
         container.appendChild(div);
       });

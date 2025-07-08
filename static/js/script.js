@@ -53,9 +53,6 @@ document.addEventListener("DOMContentLoaded", function () {
   initializeAutoToggle();
 
   document.querySelectorAll(".tab-btn").forEach((button) => {
-      button.addEventListener("click", () => {
-        const tab = button.getAttribute("data-tab");
-
       // Quitar clase 'active' de todos los botones y pestañas
       document
         .querySelectorAll(".tab-btn")
@@ -69,29 +66,6 @@ document.addEventListener("DOMContentLoaded", function () {
       document.getElementById(tab).classList.add("active");
     });
   });
-});
-
-function showScreen(screenId) {
-  // Cambiar pantalla visible
-  document.querySelectorAll(".screen").forEach((s) => {
-    s.classList.remove("active");
-  });
-  document.getElementById(screenId).classList.add("active");
-
-  // Si se muestra la pantalla de detalles, asegurar que una pestaña esté activa
-  if (screenId === "screen-details") {
-    const activeBtn =
-      document.querySelector(".tab-btn.active") ||
-      document.querySelector(".tab-btn");
-    const tab = activeBtn ? activeBtn.dataset.tab : null;
-
-    if (tab) {
-      document
-        .querySelectorAll(".tab-content")
-        .forEach((c) => c.classList.remove("active"));
-      document.getElementById(tab).classList.add("active");
-    }
-  }
 }
 
 async function loadUserPosts(page = 1) {
@@ -160,9 +134,8 @@ async function loadPostDetails(post_id) {
 				<p><strong>Comentarios:</strong> <span id="detailComments">${
           post.comment_count || 0
         }</span></p>
-                                <p><strong>Fecha:</strong> <span id="detailTimestamp">${new Date(
-          post.timestamp
-        ).toLocaleString()}</span></p>
+				<p><strong>Fecha:</strong> <span id="detailTimestamp">${new Date(
+         post.timestamp).toLocaleString()}</span></p>
 				<div id=commentsList>
 					<p><i class="fas fa-spinner fa-spin"></i> Cargando comentarios...</p>
 				</div>
@@ -211,70 +184,6 @@ async function loadPostDetails(post_id) {
             commentDiv.innerHTML = `
                                 <strong>${comment.username}</strong>: "${comment.text}"
                                 <small>${new Date(comment.timestamp).toLocaleString()}</small>
-                            `;
-            commentsList.appendChild(commentDiv);
-          });
-        }
-      } else {
-        commentsList.innerHTML = `<p class="error">Error: ${commentData.message}</p>`;
-      }
-
-      // Mostrar pestaña activa
-      const currentTab = document.querySelector(".tab-btn.active").dataset.tab;
-      document
-        .querySelectorAll(".tab-content")
-        .forEach((c) => c.classList.remove("active"));
-      document.getElementById(currentTab).classList.add("active");
-
-      // Mostrar pantalla de detalles
-      showScreen("screen-details");
-    } else {
-      responderContainer.innerHTML = `<p class="error">No se pudo cargar el post.</p>`;
-    }
-  } catch (err) {
-    responderContainer.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
-  }
-}
-
-function toggleRuleFields(enabled) {
-  const container = document.getElementById("config");
-  const ids = ["ruleKeyword", "ruleResponses", "saveNewRuleBtn"];
-  ids.forEach((id) => {
-    const el = container.querySelector("#" + id);
-    if (el) {
-      el.disabled = !enabled;
-      el.classList.toggle("disabled", !enabled);
-    }
-  });
-}
-
-function initializeAutoToggle() {
-  const toggle = document.getElementById("autoToggle");
-  if (!toggle) return;
-  toggle.addEventListener("change", (e) => {
-    const enabled = e.target.checked;
-    if (selectedPostId) updateAutoStatus(selectedPostId, enabled);
-    toggleRuleFields(enabled);
-  });
-  toggleRuleFields(toggle.checked);
-}
-
-async function updateAutoStatus(post_id, enabled) {
-  try {
-    const res = await fetch("/api/set_auto", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ post_id, enabled }),
-    });
-    const data = await res.json();
-    if (data.status !== "success") {
-      alert("Error: " + data.message);
-    }
-  } catch (err) {
-    alert("Error de conexión: " + err.message);
-  }
-}
-
 async function saveKeywordForPost(post_id, keyword, responses) {
   const statusBox = document.getElementById("newRuleStatusBox");
   statusBox.innerHTML =

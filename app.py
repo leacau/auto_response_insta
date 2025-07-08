@@ -120,6 +120,9 @@ def handle_webhook():
                         if keyword.lower() in comment_text:
                             reply_text = random.choice(responses) if isinstance(responses, list) and len(responses) > 0 else responses[0]
                             send_comment_reply(comment_id, reply_text)
+                            dm_msg = config.get("dm_message", "")
+                            if dm_msg and from_user.get("id"):
+                                send_direct_message(from_user["id"], dm_msg)
                             log_activity(comment_id, comment_text, post_id, reply_text, from_user=from_user, matched=True)
                             matched = True
                             break
@@ -155,6 +158,7 @@ def load_config_for_post(post_id):
             config = {
                 "keywords": {},
                 "default_response": "",
+                "dm_message": "",
                 "enabled": False,
                 "enabled_since": None,
             }
@@ -163,6 +167,8 @@ def load_config_for_post(post_id):
         config["enabled"] = False
     if "enabled_since" not in config:
         config["enabled_since"] = None
+    if "dm_message" not in config:
+        config["dm_message"] = ""
     return config
 
 
@@ -201,6 +207,25 @@ def send_comment_reply(comment_id, message):
         return data
     except Exception as e:
         logger.error("Excepción enviando respuesta: %s", e)
+        return {"error": str(e)}
+
+
+def send_direct_message(user_id, message):
+    """Enviar mensaje directo vía Graph API"""
+    url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/messages"
+    payload = {
+        "recipient": json.dumps({"id": user_id}),
+        "message": json.dumps({"text": message}),
+        "access_token": ACCESS_TOKEN,
+    }
+    try:
+        response = requests.post(url, data=payload, timeout=30)
+        data = response.json()
+        if "error" in data:
+            logger.error("Error enviando DM: %s", data["error"].get("message"))
+        return data
+    except Exception as e:
+        logger.error("Excepción enviando DM: %s", e)
         return {"error": str(e)}
 
 
@@ -318,7 +343,8 @@ def get_post_details(post_id):
                 "comment_count": data.get('comments_count', 0),
                 "timestamp": data.get('timestamp', ''),
                 "thumbnail": data.get('thumbnail_url', data.get('media_url', '/static/images/placeholder.jpg')),
-                "enabled": config.get('enabled', False)
+                "enabled": config.get('enabled', False),
+                "dm_message": config.get('dm_message', '')
             }
         })
 
@@ -466,6 +492,26 @@ def set_auto_reply():
         return jsonify({"status": "error", "message": "No se pudo actualizar"}), 500
     except Exception as e:
         logger.error(f"Error actualizando auto respuesta: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/set_dm', methods=['POST'])
+def set_dm_message():
+    """Actualizar el mensaje directo para un post"""
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        dm_message = data.get('dm_message', '')
+        if not post_id:
+            return jsonify({"status": "error", "message": "Faltan datos"}), 400
+
+        config = load_config_for_post(post_id)
+        config['dm_message'] = dm_message
+        if save_config_for_post(post_id, config):
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": "No se pudo guardar"}), 500
+    except Exception as e:
+        logger.error(f"Error actualizando DM: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

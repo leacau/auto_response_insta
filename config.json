@@ -1,6 +1,7 @@
 {
   "keywords": {},
   "default_response": "",
+  "dm_message": "",
   "responded_comments": {
     "17895695668004550_2025-06-11T10:49:03.123456": {
       "usuario": "usuario_prueba",
@@ -8,5 +9,4 @@
       "respuesta": "Gracias por tu comentario",
       "fecha": "2025-06-11T10:49:03.123456",
       "matched": false
-    }
-  }}
+    }  }}

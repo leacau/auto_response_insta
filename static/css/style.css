@@ -464,6 +464,17 @@ header p {
     border-radius: 8px;
     margin-bottom: 10px;
 }
+.keyword-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.delete-rule-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+}
 .keyword-rule ul {
     margin-top: 10px;
     padding-left: 20px;
@@ -480,5 +491,4 @@ header p {
 }
 .tab-btn.active {
     color: #3897f0;
-    border-bottom: 2px solid #3897f0;
-}
+    border-bottom: 2px solid #3897f0;}

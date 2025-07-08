@@ -120,6 +120,13 @@ header p {
     cursor: not-allowed;
 }
 
+#config input:disabled,
+#config textarea:disabled,
+#config button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Pantalla de detalles */
 #screen-details {
     position: relative;

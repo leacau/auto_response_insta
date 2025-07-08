@@ -85,6 +85,10 @@ document.addEventListener('DOMContentLoaded', function () {
 				).innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
         });
 
+
+        initializeAutoToggle();
+        });
+
         document.getElementById('autoToggle')?.addEventListener('change', (e) => {
                 const enabled = e.target.checked;
                 if (selectedPostId) {
@@ -277,6 +281,26 @@ async function loadPostDetails(post_id) {
 }
 
 function toggleRuleFields(enabled) {
+        const container = document.getElementById('config');
+        const ids = ['ruleKeyword', 'ruleResponses', 'saveNewRuleBtn'];
+        ids.forEach((id) => {
+                const el = container.querySelector('#' + id);
+                if (el) {
+                        el.disabled = !enabled;
+                        el.classList.toggle('disabled', !enabled);
+                }
+        });
+}
+
+function initializeAutoToggle() {
+        const toggle = document.getElementById('autoToggle');
+        if (!toggle) return;
+        toggle.addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                if (selectedPostId) updateAutoStatus(selectedPostId, enabled);
+                toggleRuleFields(enabled);
+        });
+        toggleRuleFields(toggle.checked);
         const fields = ['ruleKeyword', 'ruleResponses', 'saveNewRuleBtn'];
         fields.forEach((id) => {
                 const el = document.getElementById(id);

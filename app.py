@@ -173,7 +173,7 @@ def log_activity(comment_text, media_id, reply_text, from_user, matched=True):
 def get_user_posts():
     try:
         page = int(request.args.get('page', 1))
-        per_page = 5
+        per_page = 8
         start_idx = (page - 1) * per_page
 
         url = f"{GRAPH_URL}/{IG_USER_ID}/media"

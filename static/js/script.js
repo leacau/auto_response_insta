@@ -49,7 +49,9 @@ document.addEventListener('DOMContentLoaded', function () {
 					? 'screen-details'
 					: 'screen-home';
 			showScreen(previous);
+
 		});
+        initializeAutoToggle();
 
         document.getElementById('runTestBtn')?.addEventListener('click', () => {
 		const post_id = document.getElementById('testPostId').value.trim();
@@ -119,19 +121,26 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function showScreen(screenId) {
-	document
-		.querySelectorAll('.screen')
-		.forEach((s) => s.classList.remove('active'));
-	document.getElementById(screenId).classList.add('active');
+        // Cambiar pantalla visible
+        document.querySelectorAll('.screen').forEach((s) => {
+                s.classList.remove('active');
+        });
+        document.getElementById(screenId).classList.add('active');
 
-	// Si es screen-details, cargar pestaña activa
-	if (screenId === 'screen-details') {
-		const firstTab = document.querySelector('.tab-btn.active').dataset.tab;
-		document
-			.querySelectorAll('.tab-content')
-			.forEach((c) => c.classList.remove('active'));
-		document.getElementById(firstTab).classList.add('active');
-	}
+        // Si se muestra la pantalla de detalles, asegurar que una pestaña esté activa
+        if (screenId === 'screen-details') {
+                const activeBtn =
+                        document.querySelector('.tab-btn.active') ||
+                        document.querySelector('.tab-btn');
+                const tab = activeBtn ? activeBtn.dataset.tab : null;
+
+                if (tab) {
+                        document.querySelectorAll('.tab-content').forEach((c) =>
+                                c.classList.remove('active')
+                        );
+                        document.getElementById(tab).classList.add('active');
+                }
+        }
 }
 
 async function loadUserPosts(page = 1) {
@@ -301,6 +310,7 @@ function initializeAutoToggle() {
                 toggleRuleFields(enabled);
         });
         toggleRuleFields(toggle.checked);
+
         const fields = ['ruleKeyword', 'ruleResponses', 'saveNewRuleBtn'];
         fields.forEach((id) => {
                 const el = document.getElementById(id);
@@ -365,7 +375,7 @@ async function saveKeywordForPost(post_id, keyword, responses) {
 }
 
 async function loadAllRules(post_id = null) {
-	const rulesContainer = document.getElementById('rulesListContainer');
+	const rulesContainer = document.getElementById('configRulesListContainer');
 	rulesContainer.innerHTML =
 		'<p><i class="fas fa-spinner fa-spin"></i> Cargando reglas...</p>';
 

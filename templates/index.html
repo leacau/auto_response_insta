@@ -98,6 +98,8 @@
                                         ></textarea>
                                         <button id="saveNewRuleBtn" class="btn-primary">Guardar Regla</button>
                                         <div id="newRuleStatusBox" class="status-box"></div>
+                                        <div id="configRulesListContainer"></div>
+
                                         <div id="rulesListContainer"></div>
                                 </div>
 
@@ -110,18 +112,18 @@
 					<h2>Gestión de Palabras Clave</h2>
 					<div class="form-group">
 						<label for="ruleKeyword">Palabra Clave</label>
-						<input type="text" id="ruleKeyword" placeholder="Ejemplo: hola" />
+						<input type="text" id="globalRuleKeyword" placeholder="Ejemplo: hola" />
 					</div>
 					<div class="form-group">
-						<label for="ruleResponses">Respuestas (máx. 7)</label>
+						<label for="globalRuleResponses">Respuestas (máx. 7)</label>
 						<textarea
-							id="ruleResponses"
+							id="globalRuleResponses"
 							rows="4"
 							placeholder="Respuesta 1, Respuesta 2,..."
 						></textarea>
 					</div>
-					<button id="saveNewRuleBtn" class="btn-primary">Guardar Regla</button>
-					<div id="newRuleStatusBox" class="status-box"></div>
+					<button id="globalSaveRuleBtn" class="btn-primary">Guardar Regla</button>
+					<div id="globalRuleStatusBox" class="status-box"></div>
 				</div>
 			</div>
 

@@ -101,38 +101,50 @@ def handle_webhook():
 
 
 def load_config_for_post(post_id):
-    """Carga configuración específica para un post desde Firebase"""
+    """Carga configuración específica para un post desde Firebase o archivo local"""
     try:
         ref = db.reference(f'posts/{post_id}')
         config = ref.get()
-        if config is None:
-            return {
+    except Exception as e:
+        logger.error(f"Error cargando configuración desde Firebase: {str(e)}")
+        config = None
+
+    if config is None:
+        # Intentar cargar desde archivo local
+        try:
+            with open(get_config_path(post_id)) as f:
+                config = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as ex:
+            logger.error(f"Error leyendo configuración local: {ex}")
+            config = {
                 "keywords": {},
                 "default_response": "Gracias por tu comentario 😊",
                 "enabled": False,
             }
 
-        if "enabled" not in config:
-            config["enabled"] = False
-        return config
-    except Exception as e:
-        logger.error(f"Error cargando configuración desde Firebase: {str(e)}")
-        return {
-            "keywords": {},
-            "default_response": "Gracias por tu comentario 😊",
-            "enabled": False,
-        }
+    if "enabled" not in config:
+        config["enabled"] = False
+    return config
 
 
 def save_config_for_post(post_id, config):
-    """Guarda configuración por post en Firebase"""
+    """Guarda configuración por post en Firebase, con fallback local"""
+    success = False
     try:
         ref = db.reference(f'posts/{post_id}')
         ref.set(config)
-        return True
+        success = True
     except Exception as e:
         logger.error(f"Error guardando en Firebase: {str(e)}")
-        return False
+
+    if not success:
+        try:
+            with open(get_config_path(post_id), 'w') as f:
+                json.dump(config, f, indent=2)
+            success = True
+        except Exception as ex:
+            logger.error(f"Error guardando configuración local: {ex}")
+    return success
 
 
 def send_instagram_comment(media_id, message):
@@ -367,12 +379,29 @@ def set_auto_reply():
         enabled = data.get('enabled')
         if post_id is None or enabled is None:
             return jsonify({"status": "error", "message": "Faltan datos"}), 400
+        success = False
+        try:
+            ref = db.reference(f'posts/{post_id}')
+            current = ref.get() or {}
+            ref.update({"enabled": bool(enabled)})
+            success = True
+        except Exception as e:
+            logger.error(f"Error actualizando en Firebase: {str(e)}")
 
-        ref = db.reference(f'posts/{post_id}')
-        current = ref.get() or {}
-        ref.update({"enabled": bool(enabled)})
+        if not success:
+            try:
+                path = get_config_path(post_id)
+                config = load_config_for_post(post_id)
+                config["enabled"] = bool(enabled)
+                with open(path, 'w') as f:
+                    json.dump(config, f, indent=2)
+                success = True
+            except Exception as ex:
+                logger.error(f"Error guardando configuración local: {ex}")
 
-        return jsonify({"status": "success", "enabled": bool(enabled)})
+        if success:
+            return jsonify({"status": "success", "enabled": bool(enabled)})
+        return jsonify({"status": "error", "message": "No se pudo actualizar"}), 500
     except Exception as e:
         logger.error(f"Error actualizando auto respuesta: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -380,21 +409,31 @@ def set_auto_reply():
 
 @app.route('/api/list_rules', methods=['GET'])
 def list_all_rules():
+    rules = {}
     try:
         ref = db.reference('posts')
         rules = ref.get() or {}
-        result = []
-        for post_id, config in rules.items():
-            if isinstance(config, dict):
-                result.append({
-                    "post_id": post_id,
-                    "keywords": config.get("keywords", {}),
-                    "default_response": config.get("default_response", "")
-                })
-        return jsonify({"status": "success", "rules": result})
     except Exception as e:
-        logger.error(f"Error listando reglas: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        logger.error(f"Error listando reglas desde Firebase: {str(e)}")
+        # Fallback: cargar reglas desde archivos locales
+        for path in glob(os.path.join(CONFIG_DIR, 'config_*.json')):
+            try:
+                with open(path) as f:
+                    cfg = json.load(f)
+                post_id = os.path.splitext(os.path.basename(path))[0].replace('config_', '')
+                rules[post_id] = cfg
+            except Exception as ex:
+                logger.error(f"Error leyendo {path}: {ex}")
+
+    result = []
+    for post_id, config in rules.items():
+        if isinstance(config, dict):
+            result.append({
+                "post_id": post_id,
+                "keywords": config.get("keywords", {}),
+                "default_response": config.get("default_response", "")
+            })
+    return jsonify({"status": "success", "rules": result})
 
 
 @app.route('/api/get_history', methods=['GET'])

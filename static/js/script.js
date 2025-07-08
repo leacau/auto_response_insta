@@ -53,6 +53,52 @@ document.addEventListener('DOMContentLoaded', function () {
 		});
         initializeAutoToggle();
 
+        document.getElementById('runTestBtn')?.addEventListener('click', () => {
+		const post_id = document.getElementById('testPostId').value.trim();
+		const comment_text = document.getElementById('testComment').value.trim();
+
+		if (!post_id || !comment_text) {
+			alert('Completa los campos de prueba.');
+			return;
+		}
+
+		fetch('/api/process_comments', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ post_id, comment_text }),
+		})
+			.then((res) => res.json())
+			.then((result) => {
+				const box = document.getElementById('testResultBox');
+				if (result.status === 'success') {
+					box.innerHTML = `
+                <p class="${result.matched ? 'success' : 'info'}">
+                    <strong>Resultado:</strong><br/>
+                    Coincidió: ${result.matched ? '✅ Sí' : '❌ No'}<br/>
+                    Respuesta: "${result.response}"
+                </p>`;
+				} else {
+					box.innerHTML = `<p class="error">Error: ${result.message}</p>`;
+				}
+			})
+			.catch((err) => {
+				document.getElementById(
+					'testResultBox'
+				).innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
+        });
+
+
+        initializeAutoToggle();
+        });
+
+        document.getElementById('autoToggle')?.addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                if (selectedPostId) {
+                        updateAutoStatus(selectedPostId, enabled);
+                }
+                toggleRuleFields(enabled);
+        });
+	});
 
 	document.querySelectorAll('.tab-btn').forEach((button) => {
 		button.addEventListener('click', () => {
@@ -194,6 +240,11 @@ async function loadPostDetails(post_id) {
 
                         //asignar ID del post a los campos de prueba
                         document.getElementById('testPostId').value = post_id;
+			//asignar ID del post a los campos de regla
+			document.getElementById('rulePostId').value = post_id;
+
+			//asignr ID del post a los campos de prueba
+			document.getElementById('testPostId').value = post_id;
 
                         // Cargar comentarios del post
                         const commentsList = document.getElementById('commentsList');
@@ -259,6 +310,12 @@ function initializeAutoToggle() {
                 toggleRuleFields(enabled);
         });
         toggleRuleFields(toggle.checked);
+
+        const fields = ['ruleKeyword', 'ruleResponses', 'saveNewRuleBtn'];
+        fields.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = !enabled;
+        });
 }
 
 async function updateAutoStatus(post_id, enabled) {

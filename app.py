@@ -75,6 +75,7 @@ def handle_webhook():
                         or (value.get('post') or {}).get('id')
                         or ''
                     )
+
                     comment_id = (
                         value.get('comment_id')
                         or value.get('id')
@@ -105,7 +106,6 @@ def handle_webhook():
                                 continue
                         except Exception:
                             pass
-
                     matched = False
 
                     # Buscar coincidencias con palabras clave
@@ -196,6 +196,10 @@ def send_comment_reply(comment_id, message):
         return data
     except Exception as e:
         logger.error("Excepción enviando respuesta: %s", e)
+            logger.error("Error enviando comentario: %s", data["error"].get("message"))
+        return data
+    except Exception as e:
+        logger.error("Excepción enviando comentario: %s", e)
         return {"error": str(e)}
 
 
@@ -439,6 +443,10 @@ def set_auto_reply():
             if enabled:
                 update["enabled_since"] = timestamp
             ref.update(update)
+        try:
+            ref = db.reference(f'posts/{post_id}')
+            current = ref.get() or {}
+            ref.update({"enabled": bool(enabled)})
             success = True
         except Exception as e:
             logger.error(f"Error actualizando en Firebase: {str(e)}")

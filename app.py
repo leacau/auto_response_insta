@@ -579,7 +579,7 @@ def process_comments_manually():
                 break
 
         # Si no hay palabra clave, no se genera respuesta
-        if not matched:
+        # (se eliminó el if vacío que causaba el error)
 
         return jsonify({
             "status": "success",

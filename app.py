@@ -170,7 +170,7 @@ def save_config_for_post(post_id, config):
     except Exception as e:
         logger.error(f"Error guardando en Firebase: {str(e)}")
         "access_token": ACCESS_TOKEN,
-    }
+
     try:
         response = requests.post(url, data=payload, timeout=30)
         data = response.json()

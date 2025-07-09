@@ -332,7 +332,7 @@ def get_post_comments(post_id):
         params = {
             'access_token': ACCESS_TOKEN,
             'limit': 100,
-            'fields': 'text,from{username},timestamp'
+            'fields': 'text,from{id,username},timestamp'
         }
 
         comments = []
@@ -350,6 +350,7 @@ def get_post_comments(post_id):
                     "id": c.get('id', ''),
                     "text": c.get('text', 'Comentario no disponible'),
                     "username": user.get('username', 'usuario_anonimo'),
+                    "user_id": user.get('id', ''),
                     "timestamp": c.get('timestamp', '')
                 })
 

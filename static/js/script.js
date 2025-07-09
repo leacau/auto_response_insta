@@ -96,9 +96,21 @@ function showScreen(screenId) {
 }
 
 function toggleRuleFields(enabled) {
-    const el = document.getElementById(id);
-    if (el) el.disabled = !enabled;
-  });
+    // Lista de IDs de campos a deshabilitar
+    const fieldIds = [
+        'ruleKeyword', 
+        'ruleResponses', 
+        'saveNewRuleBtn',
+        'dmMessage',
+        'saveDmMessageBtn',
+        'testComment',
+        'runTestBtn'
+    ];
+    
+    fieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !enabled;
+    });
 }
 
 function initializeAutoToggle() {

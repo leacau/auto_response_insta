@@ -494,6 +494,27 @@ def list_all_rules():
             })
     return jsonify({"status": "success", "rules": result})
 
+@app.route('/api/set_dm', methods=['POST'])
+def set_dm_message():
+    try:
+        data = request.get_json()
+        post_id = data.get('post_id')
+        dm_message = data.get('dm_message')
+        
+        if not post_id:
+            return jsonify({"status": "error", "message": "Missing post_id"}), 400
+
+        config = load_config_for_post(post_id)
+        config['dm_message'] = dm_message
+
+        if save_config_for_post(post_id, config):
+            return jsonify({"status": "success", "message": "DM message updated"})
+        return jsonify({"status": "error", "message": "Failed to save"}), 500
+
+    except Exception as e:
+        logger.error(f"Error setting DM message: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route('/api/get_history', methods=['GET'])
 def get_history():

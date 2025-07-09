@@ -160,6 +160,7 @@ def load_config_for_post(post_id):
     config = {
         "keywords": {},
         "default_response": "",
+        "dm_message": "",
         "enabled": False,
         "enabled_since": None,
     }

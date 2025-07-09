@@ -47,12 +47,7 @@ document.addEventListener("DOMContentLoaded", function () {
     saveKeywordForPost(post_id, keyword, responses);
   });
 
-  document.getElementById("saveDmMessageBtn")?.addEventListener("click", () => {
-    const post_id = document.getElementById("rulePostId").value.trim();
-    const dm_message = document.getElementById("dmMessage").value.trim();
-    if (!post_id) return;
-    saveDmMessage(post_id, dm_message);
-  });
+
 
   // Mostrar política de privacidad
   document.getElementById("privacyBtn")?.addEventListener("click", () => {
@@ -101,8 +96,6 @@ function toggleRuleFields(enabled) {
         'ruleKeyword', 
         'ruleResponses', 
         'saveNewRuleBtn',
-        'dmMessage',
-        'saveDmMessageBtn',
         'testComment',
         'runTestBtn'
     ];
@@ -207,10 +200,6 @@ async function loadPostDetails(post_id) {
       if (autoToggle) {
         autoToggle.checked = post.enabled || false;
         toggleRuleFields(autoToggle.checked);
-      }
-
-      if (document.getElementById("dmMessage")) {
-        document.getElementById("dmMessage").value = post.dm_message || "";
       }
       
       // Asignar ID del post a los campos de prueba
@@ -443,27 +432,5 @@ async function loadAllRulesForTest(post_id = null) {
     }
   } catch (err) {
     container.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
-  }
-}
-
-// Guardar mensaje directo
-async function saveDmMessage(post_id, dm_message) {
-  const statusBox = document.getElementById("dmStatusBox");
-  statusBox.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Guardando mensaje...</p>';
-  try {
-    const res = await fetch("/api/set_dm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ post_id, dm_message }),
-    });
-    const result = await res.json();
-    if (result.status === "success") {
-      statusBox.innerHTML = '<p class="success"><i class="fas fa-check-circle"></i> Mensaje guardado</p>';
-      setTimeout(() => (statusBox.innerHTML = ""), 3000);
-    } else {
-      statusBox.innerHTML = `<p class="error">Error: ${result.message}</p>`;
-    }
-  } catch (err) {
-    statusBox.innerHTML = `<p class="error">Error de conexión: ${err.message}</p>`;
   }
 }

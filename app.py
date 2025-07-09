@@ -82,17 +82,9 @@ def handle_webhook():
                     )
                     comment_time = value.get('timestamp') or value.get('created_time')
                     from_user = value.get('from', {})  # Aquí se define from_user
-
-                    # Evitar responder a nuestros propios comentarios
-                    try:
-                        if str(from_user.get('id')) == str(IG_USER_ID):
-                            continue
-                    except Exception:
-                        pass
-
+                    
                     if not post_id or not comment_id or not comment_text:
                         continue
-
                     # Ignorar si ya respondimos a este comentario
                     if has_responded(comment_id):
                         continue
@@ -120,9 +112,7 @@ def handle_webhook():
                         if keyword.lower() in comment_text:
                             reply_text = random.choice(responses) if isinstance(responses, list) and len(responses) > 0 else responses[0]
                             send_comment_reply(comment_id, reply_text)
-                            dm_msg = config.get("dm_message", "")
-                            if dm_msg and from_user.get("id"):
-                                send_direct_message(from_user["id"], dm_msg)
+
                             log_activity(comment_id, comment_text, post_id, reply_text, from_user=from_user, matched=True)
                             matched = True
                             break
@@ -130,7 +120,7 @@ def handle_webhook():
                     # Si no hay match, usar respuesta predeterminada
                     # Si no hay coincidencia, no responder
                     if not matched:
-                        logger.info("Sin palabra clave en %s, se omite respuesta", comment_id)
+
 
             return jsonify({"status": "success", "message": "Evento procesado"}), 200
 
@@ -167,8 +157,6 @@ def load_config_for_post(post_id):
         config["enabled"] = False
     if "enabled_since" not in config:
         config["enabled_since"] = None
-    if "dm_message" not in config:
-        config["dm_message"] = ""
     return config
 
 
@@ -181,51 +169,12 @@ def save_config_for_post(post_id, config):
         success = True
     except Exception as e:
         logger.error(f"Error guardando en Firebase: {str(e)}")
-
-    if not success:
-        try:
-            with open(get_config_path(post_id), 'w') as f:
-                json.dump(config, f, indent=2)
-            success = True
-        except Exception as ex:
-            logger.error(f"Error guardando configuración local: {ex}")
-    return success
-
-
-def send_comment_reply(comment_id, message):
-    """Responder a un comentario vía Graph API"""
-    url = f"{GRAPH_URL}/{comment_id}/replies"
-    payload = {
-        "message": message,
         "access_token": ACCESS_TOKEN,
     }
     try:
         response = requests.post(url, data=payload, timeout=30)
         data = response.json()
         if "error" in data:
-            logger.error("Error enviando respuesta: %s", data["error"].get("message"))
-        return data
-    except Exception as e:
-        logger.error("Excepción enviando respuesta: %s", e)
-        return {"error": str(e)}
-
-
-def send_direct_message(user_id, message):
-    """Enviar mensaje directo vía Graph API"""
-    url = f"https://graph.facebook.com/v19.0/{IG_USER_ID}/messages"
-    payload = {
-        "recipient": json.dumps({"id": user_id}),
-        "message": json.dumps({"text": message}),
-        "access_token": ACCESS_TOKEN,
-    }
-    try:
-        response = requests.post(url, data=payload, timeout=30)
-        data = response.json()
-        if "error" in data:
-            logger.error("Error enviando DM: %s", data["error"].get("message"))
-        return data
-    except Exception as e:
-        logger.error("Excepción enviando DM: %s", e)
         return {"error": str(e)}
 
 
@@ -491,26 +440,6 @@ def set_auto_reply():
             return jsonify({"status": "success", "enabled": bool(enabled)})
         return jsonify({"status": "error", "message": "No se pudo actualizar"}), 500
     except Exception as e:
-        logger.error(f"Error actualizando auto respuesta: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route('/api/set_dm', methods=['POST'])
-def set_dm_message():
-    """Actualizar el mensaje directo para un post"""
-    try:
-        data = request.get_json()
-        post_id = data.get('post_id')
-        dm_message = data.get('dm_message', '')
-        if not post_id:
-            return jsonify({"status": "error", "message": "Faltan datos"}), 400
-
-        config = load_config_for_post(post_id)
-        config['dm_message'] = dm_message
-        if save_config_for_post(post_id, config):
-            return jsonify({"status": "success"})
-        return jsonify({"status": "error", "message": "No se pudo guardar"}), 500
-    except Exception as e:
         logger.error(f"Error actualizando DM: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -587,7 +516,6 @@ def process_comments_manually():
 
         # Si no hay palabra clave, no se genera respuesta
         if not matched:
-            reply_text = ""
 
         return jsonify({
             "status": "success",

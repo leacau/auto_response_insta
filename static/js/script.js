@@ -96,13 +96,6 @@ function showScreen(screenId) {
 }
 
 function toggleRuleFields(enabled) {
-  [
-    "ruleKeyword",
-    "ruleResponses",
-    "saveNewRuleBtn",
-    "dmMessage",
-    "saveDmMessageBtn",
-  ].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.disabled = !enabled;
   });

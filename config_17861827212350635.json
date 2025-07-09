@@ -8,6 +8,5 @@
       "Hola!!"
     ]
   },
-  "default_response": "Gracias por tu comentario",
-  "responded_comments": {}
-}
+  "default_response": "",
+  "dm_message": "",  "responded_comments": {}}

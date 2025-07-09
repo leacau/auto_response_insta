@@ -85,7 +85,6 @@ def handle_webhook():
                     
                     if not post_id or not comment_id or not comment_text:
                         continue
-
                     # Ignorar si ya respondimos a este comentario
                     if has_responded(comment_id):
                         continue
@@ -113,16 +112,15 @@ def handle_webhook():
                         if keyword.lower() in comment_text:
                             reply_text = random.choice(responses) if isinstance(responses, list) and len(responses) > 0 else responses[0]
                             send_comment_reply(comment_id, reply_text)
+
                             log_activity(comment_id, comment_text, post_id, reply_text, from_user=from_user, matched=True)
                             matched = True
                             break
 
                     # Si no hay match, usar respuesta predeterminada
+                    # Si no hay coincidencia, no responder
                     if not matched:
-                        default_response = config.get('default_response', '')
-                        if default_response:
-                            send_comment_reply(comment_id, default_response)
-                            log_activity(comment_id, comment_text, post_id, default_response, from_user=from_user, matched=False)
+
 
             return jsonify({"status": "success", "message": "Evento procesado"}), 200
 
@@ -149,7 +147,8 @@ def load_config_for_post(post_id):
             logger.error(f"Error leyendo configuración local: {ex}")
             config = {
                 "keywords": {},
-                "default_response": "Gracias por tu comentario 😊",
+                "default_response": "",
+                "dm_message": "",
                 "enabled": False,
                 "enabled_since": None,
             }
@@ -170,31 +169,12 @@ def save_config_for_post(post_id, config):
         success = True
     except Exception as e:
         logger.error(f"Error guardando en Firebase: {str(e)}")
-
-    if not success:
-        try:
-            with open(get_config_path(post_id), 'w') as f:
-                json.dump(config, f, indent=2)
-            success = True
-        except Exception as ex:
-            logger.error(f"Error guardando configuración local: {ex}")
-    return success
-
-def send_comment_reply(comment_id, message):
-    """Responder a un comentario vía Graph API"""
-    url = f"{GRAPH_URL}/{comment_id}/replies"
-    payload = {
-        "message": message,
         "access_token": ACCESS_TOKEN,
     }
     try:
         response = requests.post(url, data=payload, timeout=30)
         data = response.json()
         if "error" in data:
-            logger.error("Error enviando respuesta: %s", data["error"].get("message"))
-        return data
-    except Exception as e:
-        logger.error("Excepción enviando respuesta: %s", e)
         return {"error": str(e)}
 
 
@@ -312,7 +292,8 @@ def get_post_details(post_id):
                 "comment_count": data.get('comments_count', 0),
                 "timestamp": data.get('timestamp', ''),
                 "thumbnail": data.get('thumbnail_url', data.get('media_url', '/static/images/placeholder.jpg')),
-                "enabled": config.get('enabled', False)
+                "enabled": config.get('enabled', False),
+                "dm_message": config.get('dm_message', '')
             }
         })
 
@@ -459,7 +440,7 @@ def set_auto_reply():
             return jsonify({"status": "success", "enabled": bool(enabled)})
         return jsonify({"status": "error", "message": "No se pudo actualizar"}), 500
     except Exception as e:
-        logger.error(f"Error actualizando auto respuesta: {str(e)}")
+        logger.error(f"Error actualizando DM: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -533,12 +514,8 @@ def process_comments_manually():
                 matched = True
                 break
 
-        # Si no hay palabra clave, usar default_response
+        # Si no hay palabra clave, no se genera respuesta
         if not matched:
-            default_response = config.get('default_response', '')
-            if default_response:
-                reply_text = default_response
-                log_activity(None, comment_text, post_id, reply_text, {"username": "test_user"}, matched=False)
 
         return jsonify({
             "status": "success",

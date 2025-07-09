@@ -21,9 +21,8 @@ load_dotenv()
 # Constantes
 ACCESS_TOKEN = os.getenv('INSTAGRAM_ACCESS_TOKEN')
 IG_USER_ID = os.getenv('INSTAGRAM_USER_ID')
-PAGE_ID = os.getenv('FACEBOOK_PAGE_ID')  # Nuevo: ID de página para DMs
 WEBHOOK_VERIFY_TOKEN = os.getenv('WEBHOOK_VERIFY_TOKEN', 'politics_privacy_token')
-GRAPH_URL = "https://graph.facebook.com/v18.0"  # Actualizado para DMs
+GRAPH_URL = "https://graph.instagram.com/v23.0"  # Volver a la API de Instagram
 CONFIG_DIR = "config_posts"
 HISTORY_FILE = "config_global.json"
 
@@ -83,7 +82,6 @@ def handle_webhook():
                     )
                     comment_time = value.get('timestamp') or value.get('created_time')
                     from_user = value.get('from', {})
-                    user_id = from_user.get('id', '')
                     
                     if not post_id or not comment_id or not comment_text:
                         logger.warning("Datos incompletos en comentario")
@@ -112,7 +110,6 @@ def handle_webhook():
 
                     matched = False
                     reply_text = ""
-                    dm_sent = False
 
                     # Buscar coincidencias con palabras clave
                     for keyword, responses in config.get('keywords', {}).items():
@@ -120,16 +117,6 @@ def handle_webhook():
                             reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses
                             send_comment_reply(comment_id, reply_text)
                             matched = True
-                            
-                            # Enviar DM si está configurado
-                            dm_message = config.get('dm_message', '').strip()
-                            if dm_message and user_id:
-                                dm_result = send_direct_message(user_id, dm_message)
-                                if not dm_result.get('error'):
-                                    dm_sent = True
-                                else:
-                                    logger.error(f"Error enviando DM: {dm_result['error']}")
-                            
                             break  # Solo procesar primera coincidencia
 
                     # Registrar actividad si hubo match
@@ -140,9 +127,7 @@ def handle_webhook():
                             post_id, 
                             reply_text, 
                             from_user, 
-                            matched=True,
-                            dm_sent=dm_sent,
-                            dm_message=config.get('dm_message', '')
+                            matched=True
                         )
 
             return jsonify({"status": "success", "message": "Evento procesado"}), 200
@@ -151,32 +136,8 @@ def handle_webhook():
             logger.error(f"Error procesando evento: {str(e)}")
             return jsonify({"status": "error", "message": str(e)}), 500
 
-def send_direct_message(user_id, message):
-    """Envía un mensaje directo al usuario"""
-    if not PAGE_ID:
-        return {"error": "PAGE_ID no configurado"}
-    
-    url = f"{GRAPH_URL}/{PAGE_ID}/messages"
-    payload = {
-        "recipient": {"user_id": user_id},
-        "message": {"text": message},
-        "access_token": ACCESS_TOKEN,
-        "messaging_type": "MESSAGE_TAG",
-        "tag": "COMMUNITY_ALERT"
-    }
-    
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        data = response.json()
-        if response.status_code != 200:
-            error_msg = data.get('error', {}).get('message', 'Error desconocido')
-            return {"error": error_msg}
-        return data
-    except Exception as e:
-        return {"error": str(e)}
-
 def send_comment_reply(comment_id, text):
-    """Responde a un comentario existente"""
+    """Responde a un comentario existente usando la API de Instagram"""
     url = f"{GRAPH_URL}/{comment_id}/replies"
     payload = {
         "message": text,
@@ -199,7 +160,6 @@ def load_config_for_post(post_id):
     config = {
         "keywords": {},
         "default_response": "",
-        "dm_message": "",
         "enabled": False,
         "enabled_since": None,
     }
@@ -236,7 +196,7 @@ def save_config_for_post(post_id, config):
             return False
 
 def log_activity(comment_id, comment_text, media_id, reply_text, from_user, 
-                 matched=True, dm_sent=False, dm_message=""):
+                 matched=True):
     """Registra actividad en el historial"""
     try:
         # Cargar configuración existente
@@ -254,9 +214,7 @@ def log_activity(comment_id, comment_text, media_id, reply_text, from_user,
             "comentario": comment_text,
             "respuesta": reply_text,
             "fecha": timestamp,
-            "matched": matched,
-            "dm_sent": dm_sent,
-            "dm_message": dm_message
+            "matched": matched
         }
         
         # Guardar

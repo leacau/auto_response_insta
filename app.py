@@ -21,17 +21,18 @@ load_dotenv()
 # Constantes
 ACCESS_TOKEN = os.getenv('INSTAGRAM_ACCESS_TOKEN')
 IG_USER_ID = os.getenv('INSTAGRAM_USER_ID')
+PAGE_ID = os.getenv('FACEBOOK_PAGE_ID')  # Nuevo: ID de página para DMs
 WEBHOOK_VERIFY_TOKEN = os.getenv('WEBHOOK_VERIFY_TOKEN', 'politics_privacy_token')
-GRAPH_URL = "https://graph.instagram.com/v23.0" 
+GRAPH_URL = "https://graph.facebook.com/v18.0"  # Actualizado para DMs
 CONFIG_DIR = "config_posts"
 HISTORY_FILE = "config_global.json"
 
-# Inicializar Firebase solo si no está ya inicializado
+# Inicializar Firebase
 if not firebase_admin._apps:
     try:
         cred = credentials.Certificate("firebase_credentials.json")
         firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://leandrochena---sitio-oficial-default-rtdb.firebaseio.com/' 
+            'databaseURL': os.getenv('FIREBASE_DATABASE_URL')
         })
     except Exception as e:
         logger.error(f"No se pudo conectar a Firebase: {str(e)}")
@@ -81,12 +82,15 @@ def handle_webhook():
                         or (value.get('comment') or {}).get('id')
                     )
                     comment_time = value.get('timestamp') or value.get('created_time')
-                    from_user = value.get('from', {})  # Aquí se define from_user
+                    from_user = value.get('from', {})
+                    user_id = from_user.get('id', '')
                     
                     if not post_id or not comment_id or not comment_text:
+                        logger.warning("Datos incompletos en comentario")
                         continue
-                    # Ignorar si ya respondimos a este comentario
+                    
                     if has_responded(comment_id):
+                        logger.info(f"Comentario {comment_id} ya procesado")
                         continue
 
                     config = load_config_for_post(post_id)
@@ -101,26 +105,45 @@ def handle_webhook():
                             ct = datetime.fromisoformat(comment_time.replace('Z','+00:00'))
                             es = datetime.fromisoformat(enabled_since)
                             if ct < es:
+                                logger.info("Comentario previo a activación")
                                 continue
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.error(f"Error procesando fechas: {str(e)}")
 
                     matched = False
+                    reply_text = ""
+                    dm_sent = False
 
                     # Buscar coincidencias con palabras clave
                     for keyword, responses in config.get('keywords', {}).items():
                         if keyword.lower() in comment_text:
-                            reply_text = random.choice(responses) if isinstance(responses, list) and len(responses) > 0 else responses[0]
+                            reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses
                             send_comment_reply(comment_id, reply_text)
-
-                            log_activity(comment_id, comment_text, post_id, reply_text, from_user=from_user, matched=True)
                             matched = True
-                            break
+                            
+                            # Enviar DM si está configurado
+                            dm_message = config.get('dm_message', '').strip()
+                            if dm_message and user_id:
+                                dm_result = send_direct_message(user_id, dm_message)
+                                if not dm_result.get('error'):
+                                    dm_sent = True
+                                else:
+                                    logger.error(f"Error enviando DM: {dm_result['error']}")
+                            
+                            break  # Solo procesar primera coincidencia
 
-                    # Si no hay match, usar respuesta predeterminada
-                    # Si no hay coincidencia, no responder
-                    if not matched:
-
+                    # Registrar actividad si hubo match
+                    if matched:
+                        log_activity(
+                            comment_id, 
+                            comment_text, 
+                            post_id, 
+                            reply_text, 
+                            from_user, 
+                            matched=True,
+                            dm_sent=dm_sent,
+                            dm_message=config.get('dm_message', '')
+                        )
 
             return jsonify({"status": "success", "message": "Evento procesado"}), 200
 
@@ -128,89 +151,130 @@ def handle_webhook():
             logger.error(f"Error procesando evento: {str(e)}")
             return jsonify({"status": "error", "message": str(e)}), 500
 
+def send_direct_message(user_id, message):
+    """Envía un mensaje directo al usuario"""
+    if not PAGE_ID:
+        return {"error": "PAGE_ID no configurado"}
+    
+    url = f"{GRAPH_URL}/{PAGE_ID}/messages"
+    payload = {
+        "recipient": {"user_id": user_id},
+        "message": {"text": message},
+        "access_token": ACCESS_TOKEN,
+        "messaging_type": "MESSAGE_TAG",
+        "tag": "COMMUNITY_ALERT"
+    }
+    
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        data = response.json()
+        if response.status_code != 200:
+            error_msg = data.get('error', {}).get('message', 'Error desconocido')
+            return {"error": error_msg}
+        return data
+    except Exception as e:
+        return {"error": str(e)}
+
+def send_comment_reply(comment_id, text):
+    """Responde a un comentario existente"""
+    url = f"{GRAPH_URL}/{comment_id}/replies"
+    payload = {
+        "message": text,
+        "access_token": ACCESS_TOKEN
+    }
+    
+    try:
+        response = requests.post(url, data=payload, timeout=10)
+        data = response.json()
+        if "error" in data:
+            logger.error(f"Error respondiendo comentario: {data['error']['message']}")
+            return {"error": data['error']['message']}
+        return data
+    except Exception as e:
+        logger.error(f"Excepción al responder comentario: {str(e)}")
+        return {"error": str(e)}
 
 def load_config_for_post(post_id):
-    """Carga configuración específica para un post desde Firebase o archivo local"""
+    """Carga configuración específica para un post"""
+    config = {
+        "keywords": {},
+        "default_response": "",
+        "dm_message": "",
+        "enabled": False,
+        "enabled_since": None,
+    }
+    
     try:
         ref = db.reference(f'posts/{post_id}')
-        config = ref.get()
+        fb_config = ref.get() or {}
+        config.update(fb_config)
     except Exception as e:
-        logger.error(f"Error cargando configuración desde Firebase: {str(e)}")
-        config = None
-
-    if config is None:
-        # Intentar cargar desde archivo local
+        logger.error(f"Error cargando Firebase: {str(e)}")
         try:
             with open(get_config_path(post_id)) as f:
-                config = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as ex:
-            logger.error(f"Error leyendo configuración local: {ex}")
-            config = {
-                "keywords": {},
-                "default_response": "",
-                "dm_message": "",
-                "enabled": False,
-                "enabled_since": None,
-            }
+                file_config = json.load(f)
+                config.update(file_config)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
 
-    if "enabled" not in config:
-        config["enabled"] = False
-    if "enabled_since" not in config:
-        config["enabled_since"] = None
     return config
 
-
 def save_config_for_post(post_id, config):
-    """Guarda configuración por post en Firebase, con fallback local"""
-    success = False
+    """Guarda configuración por post en Firebase o localmente"""
     try:
         ref = db.reference(f'posts/{post_id}')
         ref.set(config)
-        success = True
+        return True
     except Exception as e:
         logger.error(f"Error guardando en Firebase: {str(e)}")
-        "access_token": ACCESS_TOKEN,
+        try:
+            with open(get_config_path(post_id), 'w') as f:
+                json.dump(config, f, indent=2)
+            return True
+        except Exception as e:
+            logger.error(f"Error guardando localmente: {str(e)}")
+            return False
 
+def log_activity(comment_id, comment_text, media_id, reply_text, from_user, 
+                 matched=True, dm_sent=False, dm_message=""):
+    """Registra actividad en el historial"""
     try:
-        response = requests.post(url, data=payload, timeout=30)
-        data = response.json()
-        if "error" in data:
-        return {"error": str(e)}
-
-
-def log_activity(comment_id, comment_text, media_id, reply_text, from_user, matched=True):
-    """Registrar actividad globalmente"""
-    try:
-        with open(HISTORY_FILE) as f:
-            main_config = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        main_config = {"responded_comments": {}}
-
-    timestamp = datetime.now().isoformat()
-    if not comment_id:
-        comment_id = f"{media_id}_{timestamp}"
-
-    main_config['responded_comments'][comment_id] = {
-        "usuario": from_user.get('username', 'anonimo'),
-        "comentario": comment_text,
-        "respuesta": reply_text,
-        "fecha": timestamp,
-        "matched": matched
-    }
-
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(main_config, f, indent=2)
-
+        # Cargar configuración existente
+        try:
+            with open(HISTORY_FILE) as f:
+                history = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            history = {"responded_comments": {}}
+        
+        # Crear nueva entrada
+        timestamp = datetime.now().isoformat()
+        entry = {
+            "usuario": from_user.get('username', ''),
+            "user_id": from_user.get('id', ''),
+            "comentario": comment_text,
+            "respuesta": reply_text,
+            "fecha": timestamp,
+            "matched": matched,
+            "dm_sent": dm_sent,
+            "dm_message": dm_message
+        }
+        
+        # Guardar
+        history['responded_comments'][comment_id] = entry
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(history, f, indent=2)
+            
+    except Exception as e:
+        logger.error(f"Error registrando actividad: {str(e)}")
 
 def has_responded(comment_id):
     """Verifica si ya se respondió a un comentario"""
     try:
         with open(HISTORY_FILE) as f:
-            main_config = json.load(f)
-        return comment_id in main_config.get('responded_comments', {})
+            history = json.load(f)
+        return comment_id in history.get('responded_comments', {})
     except (FileNotFoundError, json.JSONDecodeError):
         return False
-
 
 @app.route('/api/get_posts', methods=['GET'])
 def get_user_posts():
@@ -526,7 +590,6 @@ def process_comments_manually():
     except Exception as e:
         logger.error(f"Error en /api/process_comments: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))

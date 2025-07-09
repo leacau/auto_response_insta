@@ -233,7 +233,7 @@ async function loadPostDetails(post_id) {
             const commentDiv = document.createElement("div");
             commentDiv.className = "comment-item";
             commentDiv.innerHTML = `
-              <strong>${comment.username}</strong>: "${comment.text}"
+              <strong>${comment.username} (${comment.user_id})</strong>: "${comment.text}"
               <small>${new Date(comment.timestamp).toLocaleString()}</small>
             `;
             commentsList.appendChild(commentDiv);

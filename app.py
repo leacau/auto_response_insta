@@ -116,6 +116,9 @@ def handle_webhook():
                         if keyword.lower() in comment_text:
                             reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses
                             send_comment_reply(comment_id, reply_text)
+                            dm_text = config.get('dm_message')
+                            if dm_text and from_user.get('id'):
+                                send_direct_message(from_user['id'], dm_text)
                             matched = True
                             break  # Solo procesar primera coincidencia
 
@@ -153,6 +156,29 @@ def send_comment_reply(comment_id, text):
         return data
     except Exception as e:
         logger.error(f"Excepción al responder comentario: {str(e)}")
+        return {"error": str(e)}
+
+def send_direct_message(user_id, text):
+    """Envía un mensaje directo utilizando la API de Instagram"""
+    url = f"{GRAPH_URL}/{IG_USER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "recipient": {"id": user_id},
+        "message": {"text": text}
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        data = response.json()
+        if "error" in data:
+            logger.error(f"Error enviando DM: {data['error']['message']}")
+            return {"error": data['error']['message']}
+        return data
+    except Exception as e:
+        logger.error(f"Excepción enviando DM: {str(e)}")
         return {"error": str(e)}
 
 def load_config_for_post(post_id):

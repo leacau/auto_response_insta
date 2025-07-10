@@ -422,6 +422,27 @@ header p {
     border-left: 3px solid #3897f0;
 }
 
+.btn-toggle-replies {
+    background: none;
+    border: none;
+    color: #3897f0;
+    cursor: pointer;
+    margin-top: 5px;
+}
+
+.replies-container {
+    margin-top: 10px;
+    margin-left: 20px;
+}
+
+.reply-item {
+    padding: 8px;
+    margin-bottom: 8px;
+    background: #fff;
+    border-left: 3px solid #ccc;
+    border-radius: 5px;
+}
+
 .comment-item:last-child {
     margin-bottom: 0;
 }

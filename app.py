@@ -57,6 +57,18 @@ def get_config_path(post_id):
 def home():
     return render_template('index.html')
 
+@app.route('/privacy')
+def privacy_page():
+    return render_template('privacy.html')
+
+@app.route('/legal')
+def legal_page():
+    return render_template('legal.html')
+
+@app.route('/unsubscribe')
+def unsubscribe_page():
+    return render_template('unsubscribe.html')
+
 @app.route('/webhook', methods=['GET', 'POST'])
 def handle_webhook():
     if request.method == 'GET':

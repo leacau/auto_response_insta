@@ -5,11 +5,14 @@ import logging
 import time
 import threading
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 from glob import glob
 import firebase_admin
 from firebase_admin import credentials, db
+from firebase_admin import auth
+from functools import wraps
+from flask import redirect
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -39,6 +42,24 @@ if not firebase_admin._apps:
 
 os.makedirs(CONFIG_DIR, exist_ok=True)
 
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        session_cookie = request.cookies.get('session')
+        if not session_cookie:
+            if request.path.startswith('/api/'):
+                return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+            return redirect('/login')
+        try:
+            auth.verify_session_cookie(session_cookie, check_revoked=True)
+        except Exception as e:
+            logger.warning(f'Session verify failed: {str(e)}')
+            if request.path.startswith('/api/'):
+                return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+            return redirect('/login')
+        return view(*args, **kwargs)
+    return wrapped
+
 def schedule_action(delay, func, *args, **kwargs):
     """Ejecuta una función después de cierto delay sin bloquear el flujo"""
     def _run():
@@ -54,8 +75,32 @@ def get_config_path(post_id):
     return os.path.join(CONFIG_DIR, f"config_{post_id}.json")
 
 @app.route('/')
+@login_required
 def home():
     return render_template('index.html')
+
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@app.route('/sessionLogin', methods=['POST'])
+def session_login():
+    try:
+        id_token = request.json.get('idToken')
+        expires = timedelta(days=5)
+        session_cookie = auth.create_session_cookie(id_token, expires_in=expires)
+        resp = jsonify({'status': 'success'})
+        resp.set_cookie('session', session_cookie, max_age=expires.total_seconds(), httponly=True)
+        return resp
+    except Exception as e:
+        logger.error(f'Session login error: {str(e)}')
+        return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
+
+@app.route('/sessionLogout', methods=['POST'])
+def session_logout():
+    resp = jsonify({'status': 'success'})
+    resp.delete_cookie('session')
+    return resp
 
 @app.route('/privacy')
 def privacy_page():
@@ -308,6 +353,7 @@ def has_responded(comment_id):
         return False
 
 @app.route('/api/get_posts', methods=['GET'])
+@login_required
 def get_user_posts():
     try:
         page = int(request.args.get('page', 1))
@@ -361,6 +407,7 @@ def get_user_posts():
 
 
 @app.route('/api/post/<post_id>', methods=['GET'])
+@login_required
 def get_post_details(post_id):
     try:
         url = f"{GRAPH_URL}/{post_id}"
@@ -400,13 +447,15 @@ def get_post_details(post_id):
 
 
 @app.route('/api/comments/<post_id>', methods=['GET'])
+@login_required
 def get_post_comments(post_id):
     try:
         url = f"{GRAPH_URL}/{post_id}/comments"
         params = {
             'access_token': ACCESS_TOKEN,
             'limit': 100,
-            'fields': 'text,from{id,username},timestamp,comment_count'
+            'fields': 'text,from{id,username},timestamp,comment_count',
+            'filter': 'toplevel'
         }
 
         comments = []
@@ -446,6 +495,7 @@ def get_post_comments(post_id):
 
 
 @app.route('/api/replies/<comment_id>', methods=['GET'])
+@login_required
 def get_comment_replies(comment_id):
     try:
         url = f"{GRAPH_URL}/{comment_id}/replies"
@@ -485,6 +535,7 @@ def get_comment_replies(comment_id):
 
 
 @app.route('/api/add_rule', methods=['POST'])
+@login_required
 def add_new_keyword_rule():
     try:
         data = request.get_json()
@@ -519,6 +570,7 @@ def add_new_keyword_rule():
         return jsonify({"status": "error", "message": str(e)}), 500
     
 @app.route('/api/delete_rule', methods=['POST'])
+@login_required
 def delete_keyword_rule():
     try:
         data = request.get_json()
@@ -540,6 +592,7 @@ def delete_keyword_rule():
 
 
 @app.route('/api/set_auto', methods=['POST'])
+@login_required
 def set_auto_reply():
     """Activar o desactivar respuestas automáticas para un post"""
     try:
@@ -583,6 +636,7 @@ def set_auto_reply():
 
 
 @app.route('/api/list_rules', methods=['GET'])
+@login_required
 def list_all_rules():
     rules = {}
     try:
@@ -611,6 +665,7 @@ def list_all_rules():
     return jsonify({"status": "success", "rules": result})
 
 @app.route('/api/set_dm', methods=['POST'])
+@login_required
 def set_dm_message():
     try:
         data = request.get_json()
@@ -637,6 +692,7 @@ def set_dm_message():
 
 
 @app.route('/api/get_history', methods=['GET'])
+@login_required
 def get_history():
     try:
         with open(HISTORY_FILE) as f:
@@ -652,6 +708,7 @@ def get_history():
         return jsonify({"status": "error", "message": str(e)}), 500
     
 @app.route('/api/process_comments', methods=['POST'])
+@login_required
 def process_comments_manually():
     """Procesar comentarios manualmente para testeo"""
     try:

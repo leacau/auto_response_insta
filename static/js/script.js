@@ -10,6 +10,14 @@ let globalResponsesBuffer = [];
 document.addEventListener("DOMContentLoaded", function () {
   loadUserPosts(currentPage);
 
+  document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+    try {
+      await firebase.auth().signOut();
+    } catch (e) {}
+    await fetch("/sessionLogout", { method: "POST" });
+    window.location.href = "/login";
+  });
+
   const selector = document.getElementById("postSelectorContainer");
   selector?.addEventListener("click", (e) => {
     const item = e.target.closest(".post-item");

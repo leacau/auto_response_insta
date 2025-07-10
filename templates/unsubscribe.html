@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Formulario de Baja</title>
+</head>
+<body>
+    <h1>Formulario de Baja de Contacto Automático</h1>
+
+    <form action="#" method="POST">
+        <label for="nombre">Nombre completo (opcional):</label><br>
+        <input type="text" id="nombre" name="nombre"><br><br>
+
+        <label for="email">Correo electrónico o nombre de usuario:</label><br>
+        <input type="text" id="email" name="email" required><br><br>
+
+        <label>Motivo de la baja (opcional):</label><br>
+        <input type="checkbox" id="no-deseo" name="motivo" value="No deseo recibir más mensajes">
+        <label for="no-deseo">No deseo recibir más mensajes</label><br>
+
+        <input type="checkbox" id="no-solicitado" name="motivo" value="Recibí mensajes no solicitados">
+        <label for="no-solicitado">Recibí mensajes no solicitados</label><br>
+
+        <input type="checkbox" id="otro" name="motivo" value="Otro motivo">
+        <label for="otro">Otro motivo:</label>
+        <input type="text" name="otro-motivo"><br><br>
+
+        <button type="submit">Enviar</button>
+    </form>
+
+    <p>Gracias por tu tiempo. Tu solicitud será procesada dentro de las próximas 24 horas.</p>
+</body>
+</html>

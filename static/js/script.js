@@ -1,6 +1,10 @@
 // Variables globales
 let currentPage = 1;
 let selectedPostId = null;
+let keywordsBuffer = [];
+let responsesBuffer = [];
+let globalKeywordsBuffer = [];
+let globalResponsesBuffer = [];
 
 // Inicialización al cargar la página
 document.addEventListener("DOMContentLoaded", function () {
@@ -33,25 +37,82 @@ document.addEventListener("DOMContentLoaded", function () {
     showScreen("screen-home");
   });
 
+  document.getElementById("ruleKeyword")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const v = e.target.value.trim();
+      if (v && !keywordsBuffer.includes(v)) {
+        keywordsBuffer.push(v);
+        e.target.value = "";
+        renderKeywordChips();
+      }
+    }
+  });
+
+  document
+    .getElementById("ruleResponseInput")
+    ?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const v = e.target.value.trim();
+        if (v && !responsesBuffer.includes(v)) {
+          responsesBuffer.push(v);
+          e.target.value = "";
+          renderResponseChips();
+        }
+      }
+    });
+
   // Guardar nueva palabra clave
-  document.getElementById("saveNewRuleBtn")?.addEventListener("click", () => {
+  document.getElementById("saveNewRuleBtn")?.addEventListener("click", async () => {
     const post_id = document.getElementById("rulePostId").value.trim();
-    const keyword = document.getElementById("ruleKeyword").value.trim();
-    const responses = document.getElementById("ruleResponses").value.trim();
-    
-    if (!keyword || !responses) {
-      alert("Por favor completa ambos campos");
+    if (!post_id) return;
+    if (keywordsBuffer.length === 0 || responsesBuffer.length === 0) {
+      alert("Debes ingresar al menos una palabra clave y una respuesta");
       return;
     }
-    
-    saveKeywordForPost(post_id, keyword, responses);
+    for (const kw of keywordsBuffer) {
+      await saveKeywordForPost(post_id, kw, responsesBuffer);
+    }
+    keywordsBuffer = [];
+    responsesBuffer = [];
+    renderKeywordChips();
+    renderResponseChips();
   });
+
+  document.getElementById("globalRuleKeyword")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const v = e.target.value.trim();
+      if (v && !globalKeywordsBuffer.includes(v)) {
+        globalKeywordsBuffer.push(v);
+        e.target.value = "";
+        renderGlobalKeywordChips();
+      }
+    }
+  });
+
+  document
+    .getElementById("globalRuleResponseInput")
+    ?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const v = e.target.value.trim();
+        if (v && !globalResponsesBuffer.includes(v)) {
+          globalResponsesBuffer.push(v);
+          e.target.value = "";
+          renderGlobalResponseChips();
+        }
+      }
+    });
 
   document.getElementById("saveDmMessageBtn")?.addEventListener("click", () => {
     const post_id = document.getElementById("rulePostId").value.trim();
     const dm_message = document.getElementById("dmMessage").value.trim();
+    const button_text = document.getElementById("dmButtonText").value.trim();
+    const button_url = document.getElementById("dmButtonUrl").value.trim();
     if (!post_id) return;
-    saveDmMessage(post_id, dm_message);
+    saveDmMessage(post_id, dm_message, button_text, button_url);
   });
 
   // Mostrar política de privacidad
@@ -68,6 +129,11 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   initializeAutoToggle();
+  initEmojiBars();
+  renderKeywordChips();
+  renderResponseChips();
+  renderGlobalKeywordChips();
+  renderGlobalResponseChips();
 
   // Configuración de pestañas
   document.querySelectorAll(".tab-btn").forEach((button) => {
@@ -99,9 +165,11 @@ function toggleRuleFields(enabled) {
     // Lista de IDs de campos a deshabilitar
     const fieldIds = [
         'ruleKeyword', 
-        'ruleResponses', 
+        'ruleResponseInput',
         'saveNewRuleBtn',
         'dmMessage',
+        'dmButtonText',
+        'dmButtonUrl',
         'saveDmMessageBtn',
         'testComment',
         'runTestBtn'
@@ -111,6 +179,96 @@ function toggleRuleFields(enabled) {
         const el = document.getElementById(id);
         if (el) el.disabled = !enabled;
     });
+}
+
+function renderKeywordChips() {
+  const container = document.getElementById("keywordList");
+  if (!container) return;
+  container.innerHTML = "";
+  keywordsBuffer.forEach((kw, idx) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.innerHTML = `${kw} <button data-idx="${idx}">&times;</button>`;
+    container.appendChild(chip);
+  });
+  container.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      keywordsBuffer.splice(btn.dataset.idx, 1);
+      renderKeywordChips();
+    });
+  });
+}
+
+function renderResponseChips() {
+  const container = document.getElementById("responseList");
+  if (!container) return;
+  container.innerHTML = "";
+  responsesBuffer.forEach((resp, idx) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.innerHTML = `${resp} <button data-idx="${idx}">&times;</button>`;
+    container.appendChild(chip);
+  });
+  container.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      responsesBuffer.splice(btn.dataset.idx, 1);
+      renderResponseChips();
+    });
+  });
+}
+
+function renderGlobalKeywordChips() {
+  const container = document.getElementById("globalKeywordList");
+  if (!container) return;
+  container.innerHTML = "";
+  globalKeywordsBuffer.forEach((kw, idx) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.innerHTML = `${kw} <button data-idx="${idx}">&times;</button>`;
+    container.appendChild(chip);
+  });
+  container.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      globalKeywordsBuffer.splice(btn.dataset.idx, 1);
+      renderGlobalKeywordChips();
+    });
+  });
+}
+
+function renderGlobalResponseChips() {
+  const container = document.getElementById("globalResponseList");
+  if (!container) return;
+  container.innerHTML = "";
+  globalResponsesBuffer.forEach((resp, idx) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.innerHTML = `${resp} <button data-idx="${idx}">&times;</button>`;
+    container.appendChild(chip);
+  });
+  container.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      globalResponsesBuffer.splice(btn.dataset.idx, 1);
+      renderGlobalResponseChips();
+    });
+  });
+}
+
+function initEmojiBars() {
+  document.querySelectorAll(".emoji-bar").forEach((bar) => {
+    const target = document.getElementById(bar.dataset.target);
+    if (!target) return;
+    bar.querySelectorAll("span").forEach((sp) => {
+      sp.addEventListener("click", () => insertAtCursor(target, sp.textContent));
+    });
+  });
+}
+
+function insertAtCursor(input, text) {
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  input.value = input.value.substring(0, start) + text + input.value.substring(end);
+  input.selectionStart = input.selectionEnd = start + text.length;
+  input.focus();
 }
 
 function initializeAutoToggle() {
@@ -212,6 +370,12 @@ async function loadPostDetails(post_id) {
       if (document.getElementById("dmMessage")) {
         document.getElementById("dmMessage").value = post.dm_message || "";
       }
+      if (document.getElementById("dmButtonText")) {
+        document.getElementById("dmButtonText").value = post.dm_button_text || "";
+      }
+      if (document.getElementById("dmButtonUrl")) {
+        document.getElementById("dmButtonUrl").value = post.dm_button_url || "";
+      }
       
       // Asignar ID del post a los campos de prueba
       document.getElementById("testPostId").value = post_id;
@@ -233,7 +397,7 @@ async function loadPostDetails(post_id) {
             const commentDiv = document.createElement("div");
             commentDiv.className = "comment-item";
             commentDiv.innerHTML = `
-              <strong>${comment.username}</strong>: "${comment.text}"
+              <strong>${comment.username} (${comment.user_id} - ${comment.id})</strong>: "${comment.text}"
               <small>${new Date(comment.timestamp).toLocaleString()}</small>
             `;
             commentsList.appendChild(commentDiv);
@@ -254,10 +418,12 @@ async function saveKeywordForPost(post_id, keyword, responses) {
   const statusBox = document.getElementById("newRuleStatusBox");
   statusBox.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Guardando regla...</p>';
   
-  const responseArray = responses
-    .split(",")
-    .map((r) => r.trim())
-    .filter(Boolean);
+  const responseArray = Array.isArray(responses)
+    ? responses
+    : responses
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean);
   
   if (responseArray.length === 0) {
     statusBox.innerHTML = `<p class="error">Debes ingresar al menos una respuesta</p>`;
@@ -447,14 +613,14 @@ async function loadAllRulesForTest(post_id = null) {
 }
 
 // Guardar mensaje directo
-async function saveDmMessage(post_id, dm_message) {
+async function saveDmMessage(post_id, dm_message, button_text, button_url) {
   const statusBox = document.getElementById("dmStatusBox");
   statusBox.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Guardando mensaje...</p>';
   try {
     const res = await fetch("/api/set_dm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ post_id, dm_message }),
+      body: JSON.stringify({ post_id, dm_message, button_text, button_url }),
     });
     const result = await res.json();
     if (result.status === "success") {

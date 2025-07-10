@@ -3,6 +3,7 @@ import os
 import json
 import logging
 import time
+import threading
 import requests
 from datetime import datetime
 import random
@@ -37,6 +38,17 @@ if not firebase_admin._apps:
         logger.error(f"No se pudo conectar a Firebase: {str(e)}")
 
 os.makedirs(CONFIG_DIR, exist_ok=True)
+
+def schedule_action(delay, func, *args, **kwargs):
+    """Ejecuta una función después de cierto delay sin bloquear el flujo"""
+    def _run():
+        time.sleep(delay)
+        try:
+            func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error en acción diferida: {str(e)}")
+
+    threading.Thread(target=_run, daemon=True).start()
 
 def get_config_path(post_id):
     return os.path.join(CONFIG_DIR, f"config_{post_id}.json")
@@ -115,10 +127,23 @@ def handle_webhook():
                     for keyword, responses in config.get('keywords', {}).items():
                         if keyword.lower() in comment_text:
                             reply_text = random.choice(responses) if isinstance(responses, list) and responses else responses
+                            schedule_action(10, send_comment_reply, comment_id, reply_text)
+                            dm_text = config.get('dm_message')
+                            if dm_text and from_user.get('id'):
+                                schedule_action(
+                                    20,
+                                    send_direct_message,
+                                    from_user['id'],
+                                    dm_text,
+                                    config.get('dm_button_text'),
+                                    config.get('dm_button_url'),
+                                )
+
                             send_comment_reply(comment_id, reply_text)
                             dm_text = config.get('dm_message')
                             if dm_text and from_user.get('id'):
                                 send_direct_message(from_user['id'], dm_text)
+
                             matched = True
                             break  # Solo procesar primera coincidencia
 
@@ -158,6 +183,7 @@ def send_comment_reply(comment_id, text):
         logger.error(f"Excepción al responder comentario: {str(e)}")
         return {"error": str(e)}
 
+def send_direct_message(user_id, text, button_text=None, button_url=None):
 def send_direct_message(user_id, text):
     """Envía un mensaje directo utilizando la API de Instagram"""
     url = f"{GRAPH_URL}/{IG_USER_ID}/messages"
@@ -165,6 +191,22 @@ def send_direct_message(user_id, text):
         "Authorization": f"Bearer {ACCESS_TOKEN}",
         "Content-Type": "application/json"
     }
+    payload = {"recipient": {"id": user_id}}
+    if button_text and button_url:
+        payload["message"] = {
+            "attachment": {
+                "type": "template",
+                "payload": {
+                    "template_type": "button",
+                    "text": text,
+                    "buttons": [
+                        {"type": "web_url", "url": button_url, "title": button_text}
+                    ],
+                },
+            }
+        }
+    else:
+        payload["message"] = {"text": text}
     payload = {
         "recipient": {"id": user_id},
         "message": {"text": text}
@@ -187,6 +229,8 @@ def load_config_for_post(post_id):
         "keywords": {},
         "default_response": "",
         "dm_message": "",
+        "dm_button_text": "",
+        "dm_button_url": "",
         "enabled": False,
         "enabled_since": None,
     }
@@ -342,7 +386,9 @@ def get_post_details(post_id):
                 "timestamp": data.get('timestamp', ''),
                 "thumbnail": data.get('thumbnail_url', data.get('media_url', '/static/images/placeholder.jpg')),
                 "enabled": config.get('enabled', False),
-                "dm_message": config.get('dm_message', '')
+                "dm_message": config.get('dm_message', ''),
+                "dm_button_text": config.get('dm_button_text', ''),
+                "dm_button_url": config.get('dm_button_url', '')
             }
         })
 
@@ -528,12 +574,16 @@ def set_dm_message():
         data = request.get_json()
         post_id = data.get('post_id')
         dm_message = data.get('dm_message')
+        button_text = data.get('button_text')
+        button_url = data.get('button_url')
         
         if not post_id:
             return jsonify({"status": "error", "message": "Missing post_id"}), 400
 
         config = load_config_for_post(post_id)
         config['dm_message'] = dm_message
+        config['dm_button_text'] = button_text
+        config['dm_button_url'] = button_url
 
         if save_config_for_post(post_id, config):
             return jsonify({"status": "success", "message": "DM message updated"})

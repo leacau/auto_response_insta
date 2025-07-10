@@ -89,13 +89,13 @@
                                                 </label>
                                         </div>
                                         <label for="ruleKeyword">Palabra Clave</label>
-                                        <input type="text" id="ruleKeyword" placeholder="Ejemplo: hola" />
-                                        <label for="ruleResponses">Respuestas (máximo 7)</label>
-                                        <textarea
-                                                id="ruleResponses"
-                                                rows="4"
-                                                placeholder="Respuesta 1, Respuesta 2,..."
-                                        ></textarea>
+                                        <input type="text" id="ruleKeyword" placeholder="Escribe y presiona Enter" />
+                                        <div class="emoji-bar" data-target="ruleKeyword"><span>😀</span><span>😂</span><span>😍</span><span>👍</span><span>🎉</span><span>🙏</span><span>🔥</span><span>❤️</span></div>
+                                        <div id="keywordList" class="chip-container"></div>
+                                        <label for="ruleResponseInput">Respuestas (máx. 7)</label>
+                                        <input type="text" id="ruleResponseInput" placeholder="Escribe y presiona Enter" />
+                                        <div class="emoji-bar" data-target="ruleResponseInput"><span>😀</span><span>😂</span><span>😍</span><span>👍</span><span>🎉</span><span>🙏</span><span>🔥</span><span>❤️</span></div>
+                                        <div id="responseList" class="chip-container"></div>
                                         <button id="saveNewRuleBtn" class="btn-primary">Guardar Regla</button>
                                         <div id="newRuleStatusBox" class="status-box"></div>
 
@@ -105,6 +105,16 @@
                                                 rows="2"
                                                 placeholder="Escribe el mensaje directo"
                                         ></textarea>
+                                        <div class="emoji-bar" data-target="dmMessage">
+                                                <span>😀</span><span>😂</span><span>😍</span><span>👍</span><span>🎉</span><span>🙏</span><span>🔥</span><span>❤️</span>
+                                        </div>
+                                        <label for="dmButtonText">Texto del botón</label>
+                                        <input type="text" id="dmButtonText" placeholder="Texto del botón" />
+                                        <div class="emoji-bar" data-target="dmButtonText">
+                                                <span>😀</span><span>😂</span><span>😍</span><span>👍</span><span>🎉</span><span>🙏</span><span>🔥</span><span>❤️</span>
+                                        </div>
+                                        <label for="dmButtonUrl">Enlace del botón</label>
+                                        <input type="text" id="dmButtonUrl" placeholder="https://..." />
                                         <button id="saveDmMessageBtn" class="btn-primary">Guardar Mensaje DM</button>
                                         <div id="dmStatusBox" class="status-box"></div>
 
@@ -119,16 +129,16 @@
 				<div id="reglas" class="tab-content">
 					<h2>Gestión de Palabras Clave</h2>
 					<div class="form-group">
-						<label for="ruleKeyword">Palabra Clave</label>
-						<input type="text" id="globalRuleKeyword" placeholder="Ejemplo: hola" />
+                                                <label for="ruleKeyword">Palabra Clave</label>
+                                                <input type="text" id="globalRuleKeyword" placeholder="Escribe y presiona Enter" />
+                                                <div class="emoji-bar" data-target="globalRuleKeyword"><span>😀</span><span>😂</span><span>😍</span><span>👍</span><span>🎉</span><span>🙏</span><span>🔥</span><span>❤️</span></div>
+                                                <div id="globalKeywordList" class="chip-container"></div>
 					</div>
 					<div class="form-group">
-						<label for="globalRuleResponses">Respuestas (máx. 7)</label>
-						<textarea
-							id="globalRuleResponses"
-							rows="4"
-							placeholder="Respuesta 1, Respuesta 2,..."
-						></textarea>
+                                                <label for="globalRuleResponses">Respuestas (máx. 7)</label>
+                                                <input type="text" id="globalRuleResponseInput" placeholder="Escribe y presiona Enter" />
+                                                <div class="emoji-bar" data-target="globalRuleResponseInput"><span>😀</span><span>😂</span><span>😍</span><span>👍</span><span>🎉</span><span>🙏</span><span>🔥</span><span>❤️</span></div>
+                                                <div id="globalResponseList" class="chip-container"></div>
 					</div>
 					<button id="globalSaveRuleBtn" class="btn-primary">Guardar Regla</button>
 					<div id="globalRuleStatusBox" class="status-box"></div>

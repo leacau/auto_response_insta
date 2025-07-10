@@ -492,3 +492,35 @@ header p {
 .tab-btn.active {
     color: #3897f0;
     border-bottom: 2px solid #3897f0;}
+
+.chip-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.chip {
+    background: #e9ecef;
+    padding: 5px 10px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+}
+.chip button {
+    border: none;
+    background: none;
+    margin-left: 5px;
+    cursor: pointer;
+    color: #dc3545;
+}
+
+.emoji-bar {
+    margin: 5px 0;
+    cursor: pointer;
+    user-select: none;
+}
+.emoji-bar span {
+    padding: 0 4px;
+    font-size: 1.2em;
+}

@@ -83,6 +83,26 @@ def home():
 def login_page():
     return render_template('login.html')
 
+@app.route('/firebase-config.js')
+def firebase_config_js():
+    config = {
+        'apiKey': os.getenv('FIREBASE_API_KEY'),
+        'authDomain': os.getenv('FIREBASE_AUTH_DOMAIN'),
+        'projectId': os.getenv('FIREBASE_PROJECT_ID'),
+    }
+    # Optional parameters
+    opt_keys = {
+        'storageBucket': 'FIREBASE_STORAGE_BUCKET',
+        'messagingSenderId': 'FIREBASE_MESSAGING_SENDER_ID',
+        'appId': 'FIREBASE_APP_ID'
+    }
+    for key, env in opt_keys.items():
+        val = os.getenv(env)
+        if val:
+            config[key] = val
+    js = f"const firebaseConfig = {json.dumps(config)};\nfirebase.initializeApp(firebaseConfig);"
+    return Response(js, mimetype='application/javascript')
+
 @app.route('/sessionLogin', methods=['POST'])
 def session_login():
     try:

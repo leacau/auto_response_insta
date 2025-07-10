@@ -138,6 +138,12 @@ def handle_webhook():
                                     config.get('dm_button_text'),
                                     config.get('dm_button_url'),
                                 )
+
+                            send_comment_reply(comment_id, reply_text)
+                            dm_text = config.get('dm_message')
+                            if dm_text and from_user.get('id'):
+                                send_direct_message(from_user['id'], dm_text)
+
                             matched = True
                             break  # Solo procesar primera coincidencia
 
@@ -178,6 +184,7 @@ def send_comment_reply(comment_id, text):
         return {"error": str(e)}
 
 def send_direct_message(user_id, text, button_text=None, button_url=None):
+def send_direct_message(user_id, text):
     """Envía un mensaje directo utilizando la API de Instagram"""
     url = f"{GRAPH_URL}/{IG_USER_ID}/messages"
     headers = {
@@ -200,6 +207,10 @@ def send_direct_message(user_id, text, button_text=None, button_url=None):
         }
     else:
         payload["message"] = {"text": text}
+    payload = {
+        "recipient": {"id": user_id},
+        "message": {"text": text}
+    }
 
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=10)

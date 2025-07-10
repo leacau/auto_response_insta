@@ -4,7 +4,6 @@ document.getElementById('loginBtn').addEventListener('click', async () => {
   const status = document.getElementById('loginError');
   status.textContent = '';
   try {
-    await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
     const userCred = await firebase.auth().signInWithEmailAndPassword(email, password);
     const idToken = await userCred.user.getIdToken();
     const res = await fetch('/sessionLogin', {

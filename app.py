@@ -31,14 +31,26 @@ CONFIG_DIR = "config_posts"
 HISTORY_FILE = "config_global.json"
 
 # Inicializar Firebase
-if not firebase_admin._apps:
+def init_firebase():
+    """Inicializa Firebase utilizando credenciales de variables de entorno."""
+    if firebase_admin._apps:
+        return
     try:
-        cred = credentials.Certificate("firebase_credentials.json")
+        cred_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
+        if cred_json:
+            cred_info = json.loads(cred_json)
+            cred = credentials.Certificate(cred_info)
+        else:
+            cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH', 'firebase_credentials.json')
+            cred = credentials.Certificate(cred_path)
+
         firebase_admin.initialize_app(cred, {
             'databaseURL': os.getenv('FIREBASE_DATABASE_URL')
         })
     except Exception as e:
         logger.error(f"No se pudo conectar a Firebase: {str(e)}")
+
+init_firebase()
 
 os.makedirs(CONFIG_DIR, exist_ok=True)
 

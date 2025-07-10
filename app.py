@@ -32,21 +32,25 @@ HISTORY_FILE = "config_global.json"
 
 # Inicializar Firebase
 def init_firebase():
-    """Inicializa Firebase utilizando credenciales de variables de entorno."""
+    """Inicializa Firebase utilizando únicamente variables de entorno."""
     if firebase_admin._apps:
         return
     try:
         cred_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
+        cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH')
         if cred_json:
             cred_info = json.loads(cred_json)
             cred = credentials.Certificate(cred_info)
-        else:
-            cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH', 'firebase_credentials.json')
+        elif cred_path:
             cred = credentials.Certificate(cred_path)
+        else:
+            raise ValueError('FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_CREDENTIALS_PATH must be set')
 
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': os.getenv('FIREBASE_DATABASE_URL')
-        })
+        db_url = os.getenv('FIREBASE_DATABASE_URL')
+        if not db_url:
+            raise ValueError('FIREBASE_DATABASE_URL not set')
+
+        firebase_admin.initialize_app(cred, {'databaseURL': db_url})
     except Exception as e:
         logger.error(f"No se pudo conectar a Firebase: {str(e)}")
 

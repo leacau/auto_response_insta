@@ -396,10 +396,68 @@ async function loadPostDetails(post_id) {
           comments.forEach((comment) => {
             const commentDiv = document.createElement("div");
             commentDiv.className = "comment-item";
-            commentDiv.innerHTML = `
-              <strong>${comment.username} (${comment.user_id} - ${comment.id})</strong>: "${comment.text}"
-              <small>${new Date(comment.timestamp).toLocaleString()}</small>
+
+            const header = document.createElement("div");
+            header.innerHTML = `
+              <strong class="comment-user">${comment.username} (${comment.user_id} - ${comment.id})</strong>
+              <p class="comment-text">"${comment.text}"</p>
+              <small class="comment-date">${new Date(comment.timestamp).toLocaleString()}</small>
             `;
+            commentDiv.appendChild(header);
+
+            if (comment.comment_count && comment.comment_count > 0) {
+              const toggleBtn = document.createElement("button");
+              toggleBtn.textContent = `Ver respuestas (${comment.comment_count})`;
+              toggleBtn.className = "btn-toggle-replies";
+
+              const repliesContainer = document.createElement("div");
+              repliesContainer.className = "replies-container";
+              repliesContainer.style.display = "none";
+
+              toggleBtn.addEventListener("click", async () => {
+                if (repliesContainer.style.display === "none") {
+                  toggleBtn.textContent = "Ocultar respuestas";
+                  repliesContainer.style.display = "block";
+                  if (!repliesContainer.dataset.loaded) {
+                    repliesContainer.innerHTML = `<p><i class='fas fa-spinner fa-spin'></i> Cargando...</p>`;
+                    try {
+                      const res = await fetch(`/api/replies/${comment.id}`);
+                      const data = await res.json();
+                      if (data.status === "success") {
+                        repliesContainer.innerHTML = "";
+                        const replies = data.replies || [];
+                        if (replies.length === 0) {
+                          repliesContainer.innerHTML = "<p>No hay respuestas.</p>";
+                        } else {
+                          replies.forEach((rep) => {
+                            const repDiv = document.createElement("div");
+                            repDiv.className = "reply-item";
+                            repDiv.innerHTML = `
+                              <strong class="comment-user">${rep.username} (${rep.user_id})</strong>
+                              <p class="comment-text">"${rep.text}"</p>
+                              <small class="comment-date">${new Date(rep.timestamp).toLocaleString()}</small>
+                            `;
+                            repliesContainer.appendChild(repDiv);
+                          });
+                        }
+                        repliesContainer.dataset.loaded = "true";
+                      } else {
+                        repliesContainer.innerHTML = `<p class='error'>${data.message || 'Error'}</p>`;
+                      }
+                    } catch (err) {
+                      repliesContainer.innerHTML = `<p class='error'>${err.message}</p>`;
+                    }
+                  }
+                } else {
+                  repliesContainer.style.display = "none";
+                  toggleBtn.textContent = `Ver respuestas (${comment.comment_count})`;
+                }
+              });
+
+              commentDiv.appendChild(toggleBtn);
+              commentDiv.appendChild(repliesContainer);
+            }
+
             commentsList.appendChild(commentDiv);
           });
         }

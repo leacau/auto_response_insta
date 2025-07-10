@@ -406,7 +406,7 @@ def get_post_comments(post_id):
         params = {
             'access_token': ACCESS_TOKEN,
             'limit': 100,
-            'fields': 'text,from{id,username},timestamp'
+            'fields': 'text,from{id,username},timestamp,comment_count'
         }
 
         comments = []
@@ -425,7 +425,8 @@ def get_post_comments(post_id):
                     "text": c.get('text', 'Comentario no disponible'),
                     "username": user.get('username', 'usuario_anonimo'),
                     "user_id": user.get('id', ''),
-                    "timestamp": c.get('timestamp', '')
+                    "timestamp": c.get('timestamp', ''),
+                    "comment_count": c.get('comment_count', 0)
                 })
 
             url = data.get('paging', {}).get('next')
@@ -441,6 +442,45 @@ def get_post_comments(post_id):
 
     except Exception as e:
         logger.error(f"Error obteniendo comentarios: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/replies/<comment_id>', methods=['GET'])
+def get_comment_replies(comment_id):
+    try:
+        url = f"{GRAPH_URL}/{comment_id}/replies"
+        params = {
+            'access_token': ACCESS_TOKEN,
+            'limit': 100,
+            'fields': 'text,from{id,username},timestamp'
+        }
+
+        replies = []
+        while url:
+            response = requests.get(url, params=params if params else {}, timeout=30)
+            data = response.json()
+
+            if 'error' in data:
+                logger.error(f"Error obteniendo respuestas: {data['error']['message']}")
+                return jsonify({"status": "error", "message": data['error']['message']}), 500
+
+            for r in data.get('data', []):
+                user = r.get('from', {}) or {}
+                replies.append({
+                    "id": r.get('id', ''),
+                    "text": r.get('text', 'Comentario no disponible'),
+                    "username": user.get('username', 'usuario_anonimo'),
+                    "user_id": user.get('id', ''),
+                    "timestamp": r.get('timestamp', '')
+                })
+
+            url = data.get('paging', {}).get('next')
+            params = None
+
+        return jsonify({"status": "success", "replies": replies})
+
+    except Exception as e:
+        logger.error(f"Error obteniendo respuestas: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
